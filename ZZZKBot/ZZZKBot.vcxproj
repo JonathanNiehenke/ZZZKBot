@@ -90,11 +90,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Source\Dll.cpp" />
-    <ClCompile Include="Source\ZZZKBotAIModule.cpp" />
+    <ClCompile Include="Dll.cpp" />
+    <ClCompile Include="ZZZKBotAIModule.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Source\ZZZKBotAIModule.h" />
+    <ClInclude Include="ZZZKBotAIModule.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
