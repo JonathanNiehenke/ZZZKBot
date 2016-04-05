@@ -25,6 +25,13 @@
 // distributed under the terms of the GNU Lesser General Public License
 // (LGPL) version 3).
 
+// # Original file statistics:
+// #   2823 lines of which 236 lines are empty and 349 are comments.
+// #   291 if and else if statements.
+// #   40 == or != to BWAPI::**::Unknown, Invailid or None.
+// #   Longest lines are 695 and 717 at 329 characters.
+// #   32 Lambdas.
+
 #include "ZZZKBotAIModule.h"
 #include <iostream>
 #include <limits>
@@ -67,7 +74,8 @@ void ZZZKBotAIModule::onStart()
             // Only print the player if they are not an observer
             if (!p->isObserver())
             {
-                Broodwar << p->getName() << ", playing as " << p->getRace() << std::endl;
+                Broodwar << p->getName() << ", playing as "
+                         << p->getRace() << std::endl;
             }
         }
     }
@@ -77,7 +85,8 @@ void ZZZKBotAIModule::onStart()
         // If you wish to deal with multiple enemies then you must use enemies().
         if (Broodwar->enemy()) // First make sure there is an enemy
         {
-            Broodwar << "The matchup is " << Broodwar->self()->getRace() << " vs " << Broodwar->enemy()->getRace() << std::endl;
+            Broodwar << "The matchup is " << Broodwar->self()->getRace()
+                     << " vs " << Broodwar->enemy()->getRace() << std::endl;
         }
     }
 }
@@ -97,7 +106,8 @@ void ZZZKBotAIModule::onFrame()
 
     // Display the game frame rate as text in the upper left area of the screen
     Broodwar->drawTextScreen(200, 0,  "FPS: %d", Broodwar->getFPS() );
-    Broodwar->drawTextScreen(200, 20, "Average FPS: %f", Broodwar->getAverageFPS() );
+    Broodwar->drawTextScreen(200, 20, "Average FPS: %f",
+                             Broodwar->getAverageFPS());
 
     // Return if the game is a replay or is paused
     if (Broodwar->isReplay() || Broodwar->isPaused() || !Broodwar->self())
@@ -134,7 +144,11 @@ void ZZZKBotAIModule::onFrame()
 
     if (startBase == nullptr || !startBase->exists())
     {
-        startBase = BWAPI::Broodwar->getClosestUnit(BWAPI::Position(BWAPI::Broodwar->self()->getStartLocation()), BWAPI::Filter::IsResourceDepot && BWAPI::Filter::IsOwned && BWAPI::Filter::IsCompleted && !BWAPI::Filter::IsLifted && BWAPI::Filter::Exists);
+        startBase = BWAPI::Broodwar->getClosestUnit(
+            BWAPI::Position(BWAPI::Broodwar->self()->getStartLocation()),
+            BWAPI::Filter::IsResourceDepot &&BWAPI::Filter::IsOwned &&
+            BWAPI::Filter::IsCompleted && !BWAPI::Filter::IsLifted &&
+            BWAPI::Filter::Exists);
     }
 
     auto startBaseAuto = startBase;
@@ -144,7 +158,11 @@ void ZZZKBotAIModule::onFrame()
     auto getPos =
         [](const BWAPI::TilePosition tp, const BWAPI::UnitType ut)
         {
-            return Position(Position(tp) + Position((ut.tileWidth() * BWAPI::TILEPOSITION_SCALE) / 2, (ut.tileHeight() * BWAPI::TILEPOSITION_SCALE) / 2));
+            return Position(Position(tp) +
+                            Position((ut.tileWidth() *
+                                      BWAPI::TILEPOSITION_SCALE) / 2,
+                                     (ut.tileHeight() *
+                                      BWAPI::TILEPOSITION_SCALE) / 2));
         };
 
     static std::set<BWAPI::Position> enemyStartPositions;
@@ -152,9 +170,12 @@ void ZZZKBotAIModule::onFrame()
     for (const BWAPI::Player& p : Broodwar->enemies())
     {
         const BWAPI::TilePosition enemyStartLocation = p->getStartLocation();
-        if (enemyStartLocation != BWAPI::TilePositions::Unknown && enemyStartLocation != BWAPI::TilePositions::None)
+        // # if unacceptable enemyStartLocation.
+        if (enemyStartLocation != BWAPI::TilePositions::Unknown &&
+            enemyStartLocation != BWAPI::TilePositions::None)
         {
-            const BWAPI::Position pos = getPos(enemyStartLocation, BWAPI::UnitTypes::Special_Start_Location);
+            const BWAPI::Position pos = getPos(
+                enemyStartLocation, BWAPI::UnitTypes::Special_Start_Location);
             if (enemyStartPositions.empty())
             {
                 possibleOverlordScoutPositions.clear();
@@ -172,19 +193,23 @@ void ZZZKBotAIModule::onFrame()
     static std::set<BWAPI::Position> unscoutedOtherStartPositions;
     for (const BWAPI::TilePosition tp : Broodwar->getStartLocations())
     {
-        startPositions.insert(getPos(tp, BWAPI::UnitTypes::Special_Start_Location));
+        startPositions.insert(
+            getPos(tp, BWAPI::UnitTypes::Special_Start_Location));
 
         if (tp == Broodwar->self()->getStartLocation())
         {
             if (myStartPos == BWAPI::Positions::Unknown)
             {
-                myStartPos = getPos(tp, BWAPI::UnitTypes::Special_Start_Location);
+                myStartPos = getPos(
+                    tp, BWAPI::UnitTypes::Special_Start_Location);
             }
         }
         else
         {
+            // ? Where is the iterator and bool in the assignment?
             const std::pair<std::set<BWAPI::Position>::iterator, bool> ret =
-                otherStartPositions.insert(getPos(tp, BWAPI::UnitTypes::Special_Start_Location));
+                otherStartPositions.insert(
+                    getPos(tp, BWAPI::UnitTypes::Special_Start_Location));
 
             if (ret.second)
             {
@@ -199,21 +224,28 @@ void ZZZKBotAIModule::onFrame()
 
     for (const BWAPI::Position otherStartPos : unscoutedOtherStartPositions)
     {
+        // # if otherStarPos is visable and lacking enemey buildings.
         if (Broodwar->isVisible(TilePosition(otherStartPos)) &&
-            Broodwar->getUnitsOnTile(TilePosition(otherStartPos), IsEnemy && IsVisible && Exists && IsBuilding && !IsLifted).empty())
+            Broodwar->getUnitsOnTile(
+                TilePosition(otherStartPos),
+                IsEnemy && IsVisible && Exists && IsBuilding &&
+                !IsLifted).empty())
         {
             scoutedOtherStartPositions.insert(otherStartPos);
         }
     }
 
+    // # Removes intersecting elements from uncoutedOtherStartPositions.
     for (const BWAPI::Position otherStartPos : scoutedOtherStartPositions)
     {
         unscoutedOtherStartPositions.erase(otherStartPos);
     }
 
-    const std::string& enemyName = Broodwar->enemy() ? Broodwar->enemy()->getName() : "";
+    const std::string& enemyName = Broodwar->enemy() ?
+            Broodwar->enemy()->getName() : "";
     std::string enemyNameUpperCase = enemyName;
-    std::transform(enemyNameUpperCase.begin(), enemyNameUpperCase.end(),enemyNameUpperCase.begin(), ::toupper);
+    std::transform(enemyNameUpperCase.begin(), enemyNameUpperCase.end(),
+                   enemyNameUpperCase.begin(), ::toupper);
 
     static bool isSpeedlingBuildOrder =
         enemyNameUpperCase.compare(0, std::string("XIMP").size(), "XIMP") == 0 ||
@@ -227,16 +259,19 @@ void ZZZKBotAIModule::onFrame()
     static bool isEnemyXimp =
         enemyNameUpperCase.compare(0, std::string("XIMP").size(), "XIMP") == 0;
 
-    const int transitionOutOfFourPoolFrameCountThresh = isSpeedlingBuildOrder ? 0 : (15 * 60 * 24);
+    const int transitionOutOfFourPoolFrameCountThresh = isSpeedlingBuildOrder ?
+            0 : (15 * 60 * 24);
 
     // We ignore stolen gas, at least until a time near when we plan to make an extractor.
     auto isNotStolenGas =
-        [&startBaseAuto, &transitionOutOfFourPoolFrameCountThresh](const Unit& tmpUnit)
+        [&startBaseAuto, &transitionOutOfFourPoolFrameCountThresh]
+        (const Unit& tmpUnit)
         {
             return
                 !tmpUnit->getType().isRefinery() ||
                 startBaseAuto == nullptr ||
-                Broodwar->getFrameCount() + (60 * 24) >= transitionOutOfFourPoolFrameCountThresh ||
+                Broodwar->getFrameCount() + (60 * 24) >=
+                    transitionOutOfFourPoolFrameCountThresh ||
                 startBaseAuto->getDistance(tmpUnit) > 256;
         };
 
@@ -244,7 +279,9 @@ void ZZZKBotAIModule::onFrame()
     // Block to restrict scope of variables.
     {
         std::set<BWAPI::Position> vacantPosSet;
-        for (const BWAPI::Position pos : lastKnownEnemyUnliftedBuildingsAnywherePosSet)
+        // ? Its initiated as Empty search for insert and push_back.
+        for (const BWAPI::Position pos :
+             lastKnownEnemyUnliftedBuildingsAnywherePosSet)
         {
             if (Broodwar->isVisible(TilePosition(pos)) &&
                 Broodwar->getUnitsOnTile(
@@ -265,31 +302,45 @@ void ZZZKBotAIModule::onFrame()
     // TODO: add separate logic for enemy overlords (because e.g. on maps with 3 or more start locations
     // the first enemy overlord I see is not necessarily from the start position
     // nearest it).
-    static BWAPI::Position firstEnemyNonWorkerSeenPos = BWAPI::Positions::Unknown;
+    static BWAPI::Position firstEnemyNonWorkerSeenPos =
+        BWAPI::Positions::Unknown;
     static BWAPI::Position closestEnemySeenPos = BWAPI::Positions::Unknown;
     static BWAPI::Position furthestEnemySeenPos = BWAPI::Positions::Unknown;
 
     const Unitset& allUnits = Broodwar->getAllUnits();
     for (auto& u : allUnits)
     {
-        if (u->exists() && u->isVisible() && u->getPlayer() && u->getPlayer()->isEnemy(Broodwar->self()))
+        // # If visible enemy unit.
+        if (u->exists() && u->isVisible() && u->getPlayer() &&
+            u->getPlayer()->isEnemy(Broodwar->self()))
         {
-            if (u->getType().isBuilding() && !u->isLifted() && isNotStolenGas(u))
+            // # if unlifted building is not stolen gas.
+            if (u->getType().isBuilding() && !u->isLifted() &&
+                isNotStolenGas(u))
             {
-                lastKnownEnemyUnliftedBuildingsAnywherePosSet.insert(u->getPosition());
+                lastKnownEnemyUnliftedBuildingsAnywherePosSet.insert(
+                        u->getPosition());
             }
 
+            // # if unit is not a worker.
             if (myStartPos != BWAPI::Positions::Unknown &&
                 firstEnemyNonWorkerSeenPos == BWAPI::Positions::Unknown &&
                 !u->getType().isWorker() /*&&
                 u->getType() != BWAPI::UnitTypes::Zerg_Overlord*/)
             {
-                if (closestEnemySeenPos == BWAPI::Positions::Unknown || myStartPos.getDistance(u->getPosition()) < myStartPos.getDistance(closestEnemySeenPos))
+                // # if closestEnemySeenPos not set or closer to
+                // # myStartPos is determind.
+                if (closestEnemySeenPos == BWAPI::Positions::Unknown ||
+                    myStartPos.getDistance(u->getPosition()) <
+                        myStartPos.getDistance(closestEnemySeenPos))
                 {
                     closestEnemySeenPos = u->getPosition();
                 }
-
-                if (furthestEnemySeenPos == BWAPI::Positions::Unknown || myStartPos.getDistance(u->getPosition()) > myStartPos.getDistance(furthestEnemySeenPos))
+                // # if furtherEnemySeenPos not set or further  from
+                // # myStartPos is determind.
+                if (furthestEnemySeenPos == BWAPI::Positions::Unknown ||
+                    myStartPos.getDistance(u->getPosition()) >
+                        myStartPos.getDistance(furthestEnemySeenPos))
                 {
                     furthestEnemySeenPos = u->getPosition();
                 }
@@ -298,25 +349,39 @@ void ZZZKBotAIModule::onFrame()
     }
 
     BWAPI::Position probableEnemyStartPos = BWAPI::Positions::Unknown;
-    if (firstEnemyNonWorkerSeenPos == BWAPI::Positions::Unknown && furthestEnemySeenPos != BWAPI::Positions::Unknown)
+    // # if firstEnemyNonWorkerSeenPos is not set and
+    // # furthestEnemySeenPos is set.
+    if (firstEnemyNonWorkerSeenPos == BWAPI::Positions::Unknown &&
+        furthestEnemySeenPos != BWAPI::Positions::Unknown)
     {
         firstEnemyNonWorkerSeenPos = furthestEnemySeenPos;
     }
 
+    // # if firstEnemySeenPos is set.
     if (furthestEnemySeenPos != BWAPI::Positions::Unknown)
     {
         for (const BWAPI::Position pos : unscoutedOtherStartPositions)
         {
-            if (probableEnemyStartPos == BWAPI::Positions::Unknown || furthestEnemySeenPos.getDistance(pos) < furthestEnemySeenPos.getDistance(probableEnemyStartPos))
+            // # if probableEnemyStart less than furthestEnemySeen or
+            // # unknown.
+            if (probableEnemyStartPos == BWAPI::Positions::Unknown ||
+                furthestEnemySeenPos.getDistance(pos) <
+                    furthestEnemySeenPos.getDistance(probableEnemyStartPos))
             {
                 probableEnemyStartPos = pos;
             }
         }
     }
 
-    if (closestEnemySeenPos != BWAPI::Positions::Unknown && probableEnemyStartPos != BWAPI::Positions::Unknown)
+    // # if closestEnemySeenPos and probableEnemyStartPos are set.
+    if (closestEnemySeenPos != BWAPI::Positions::Unknown &&
+        probableEnemyStartPos != BWAPI::Positions::Unknown)
     {
-        if (myStartPos != BWAPI::Positions::Unknown && myStartPos.getDistance(closestEnemySeenPos) < probableEnemyStartPos.getDistance(closestEnemySeenPos))
+        // # if enemyUnit is closer to myStart than enemyUnit to
+        // # probableEnemyStart.
+        if (myStartPos != BWAPI::Positions::Unknown &&
+            myStartPos.getDistance(closestEnemySeenPos) <
+                probableEnemyStartPos.getDistance(closestEnemySeenPos))
         {
             // We send combat units to other starting positions in order of their closeness,
             // and 4pool should get combat units faster than any other build, so on most maps
@@ -380,9 +445,13 @@ void ZZZKBotAIModule::onFrame()
         }
 
         supplyUsed += u->getType().supplyRequired();
-        if (u->getType() == BWAPI::UnitTypes::Zerg_Egg || u->getType() == BWAPI::UnitTypes::Zerg_Lurker_Egg || u->getType() == BWAPI::UnitTypes::Zerg_Cocoon)
+        // # if various eggs/cocoon.
+        if (u->getType() == BWAPI::UnitTypes::Zerg_Egg ||
+            u->getType() == BWAPI::UnitTypes::Zerg_Lurker_Egg ||
+            u->getType() == BWAPI::UnitTypes::Zerg_Cocoon)
         {
             const BWAPI::UnitType buildType = u->getBuildType();
+            // # if buildType is known.
             if (buildType != BWAPI::UnitTypes::None &&
                 buildType != BWAPI::UnitTypes::Unknown)
             {
@@ -393,24 +462,37 @@ void ZZZKBotAIModule::onFrame()
             }
         }
 
+        // # if worker is complete.
         if (u->getType().isWorker() && u->isCompleted())
         {
             myCompletedWorkers.insert(u);
         }
 
-        if (u->getType() == BWAPI::UnitTypes::Zerg_Drone && u->getHitPoints() <= 10)
+        // # if Drone and <= 10 health.
+        if (u->getType() == BWAPI::UnitTypes::Zerg_Drone &&
+            u->getHitPoints() <= 10)
         {
             // Don't interrupt its attack if it is attacking.
-            if (u->getLastCommand().getType() == BWAPI::UnitCommandTypes::None ||
-                Broodwar->getFrameCount() >= u->getLastCommandFrame() + 2 - (Broodwar->getLatencyFrames() > 2 ? u->getLastCommandFrame() % 2 : 0) ||
-                !(u->getTarget() && u->getTarget()->getPlayer() && u->getTarget()->getPlayer()->isEnemy(Broodwar->self())))
+            // # if not instructed or improper frame or unit is targeting enemy.
+            if (u->getLastCommand().getType() ==
+                    BWAPI::UnitCommandTypes::None ||
+                Broodwar->getFrameCount() >=
+                    u->getLastCommandFrame() + 2 - (
+                        Broodwar->getLatencyFrames() > 2 ? 
+                            u->getLastCommandFrame() % 2 : 0) ||
+                !(u->getTarget() && u->getTarget()->getPlayer() &&
+                  u->getTarget()->getPlayer()->isEnemy(Broodwar->self())))
             {
                 lowLifeDrone = u;
             }
         }
 
+        // # if completed building is with less than 3/10ths of max
+        // # durability.
         if (u->getType().isBuilding() && u->isCompleted() &&
-            u->getHitPoints() + u->getShields() < ((u->getType().maxHitPoints() + u->getType().maxShields()) * 3) / 10)
+            u->getHitPoints() + u->getShields() <
+                ((u->getType().maxHitPoints() +
+                  u->getType().maxShields()) * 3) / 10)
         {
             isBuildingLowLife = true;
         }
@@ -426,7 +508,9 @@ void ZZZKBotAIModule::onFrame()
         }
     }
 
-    if (Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh || supplyUsed >= 60)
+    // # if releative 15min game or supply at 60 or greater.
+    if (Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh ||
+        supplyUsed >= 60)
     {
         supplyUsed = Broodwar->self()->supplyUsed();
     }
@@ -445,21 +529,30 @@ void ZZZKBotAIModule::onFrame()
                 !IsBuilding &&
                 [&u, &startBaseAuto](Unit& tmpUnit)
                 {
-                    return (startBaseAuto ? startBaseAuto->getDistance(tmpUnit) < 256 : true) && u->canAttack(PositionOrUnit(tmpUnit));
+                    return (startBaseAuto ?
+                                startBaseAuto->getDistance(tmpUnit) < 256 :
+                                true) &&
+                            u->canAttack(PositionOrUnit(tmpUnit));
                 });
 
+        // # if a building has low health or atleast 2 attacking units
+        // # or more than one worker and core buildings remain.
         if (isBuildingLowLife ||
             attackableEnemyNonBuildingThreatUnits.size() >= 2 ||
             (myCompletedWorkers.size() > 1 &&
              // Note: using allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] rather than incompleteUnitCount[BWAPI::UnitTypes::Zerg_Extractor]
              // because BWAPI seems to think it is completed.
-             myCompletedWorkers.size() + allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] + allUnitCount[BWAPI::UnitTypes::Zerg_Spawning_Pool] < 4))
+             myCompletedWorkers.size() +
+                allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] +
+                allUnitCount[BWAPI::UnitTypes::Zerg_Spawning_Pool] < 4))
         {
             workersShouldRetaliate = true;
             shouldDefend = true;
         }
+        // # elif attacking units are SCV.
         else if (!attackableEnemyNonBuildingThreatUnits.empty() &&
-                 (*attackableEnemyNonBuildingThreatUnits.begin())->getType() == BWAPI::UnitTypes::Terran_SCV)
+                 (*attackableEnemyNonBuildingThreatUnits.begin())->getType() ==
+                    BWAPI::UnitTypes::Terran_SCV)
         {
             workersShouldRetaliate = true;
         }
@@ -468,14 +561,28 @@ void ZZZKBotAIModule::onFrame()
         {
             const BWAPI::Unit& tmpEnemyUnit =
                 Broodwar->getBestUnit(
-                    [&u](const BWAPI::Unit& bestSoFarUnit, const BWAPI::Unit& curUnit)
+                    [&u]
+                    (const BWAPI::Unit& bestSoFarUnit,
+                     const BWAPI::Unit& curUnit)
                     {
-                        if (u->isInWeaponRange(curUnit) != u->isInWeaponRange(bestSoFarUnit))
+                        // # if worker range is disproportionate to
+                        // # compared units.
+                        if (u->isInWeaponRange(curUnit) !=
+                                u->isInWeaponRange(bestSoFarUnit))
                         {
-                            return u->isInWeaponRange(curUnit) ? curUnit : bestSoFarUnit;
+                            return u->isInWeaponRange(curUnit) ?
+                                   curUnit : bestSoFarUnit;
                         }
-
-                        return curUnit->getHitPoints() + curUnit->getShields() + curUnit->getType().armor() + curUnit->getDefenseMatrixPoints() < bestSoFarUnit->getHitPoints() + bestSoFarUnit->getShields() + bestSoFarUnit->getType().armor() + bestSoFarUnit->getDefenseMatrixPoints() ? curUnit : bestSoFarUnit;
+                        // # Returns the unit with less durability.
+                        return (curUnit->getHitPoints() +
+                                    curUnit->getShields() +
+                                    curUnit->getType().armor() +
+                                    curUnit->getDefenseMatrixPoints()) <
+                               (bestSoFarUnit->getHitPoints() +
+                                    bestSoFarUnit->getShields() +
+                                    bestSoFarUnit->getType().armor() +
+                                    bestSoFarUnit->getDefenseMatrixPoints())
+                               ? curUnit : bestSoFarUnit;
                     },
                     IsEnemy && IsVisible && IsDetected && Exists &&
                     CanAttack &&
@@ -484,17 +591,32 @@ void ZZZKBotAIModule::onFrame()
                     {
                         return
                             (shouldDefend ?
-                             (startBaseAuto ? startBaseAuto->getDistance(tmpUnit) < 256 : true) :
-                             u->isInWeaponRange(tmpUnit)) &&
-                            u->canAttack(PositionOrUnit(tmpUnit));
+                             // # distance to start is less than 256 or
+                             // # true.
+                                 (startBaseAuto ?
+                                        startBaseAuto->getDistance(tmpUnit) < 256 :
+                                        true) :
+                            // # else in worker weapon range and attackable.
+                                 u->isInWeaponRange(tmpUnit)) &&
+                                 u->canAttack(PositionOrUnit(tmpUnit));
                     },
                     u->getPosition(),
-                    std::max(u->getType().dimensionLeft(), std::max(u->getType().dimensionUp(), std::max(u->getType().dimensionRight(), u->getType().dimensionDown()))) + 256);
+                    std::max(u->getType().dimensionLeft(), std::max(
+                        u->getType().dimensionUp(), std::max(
+                            u->getType().dimensionRight(),
+                            u->getType().dimensionDown()))) + 256);
 
             if (tmpEnemyUnit != nullptr)
             {
+                // # if tmpUnit durability is less than workerTarget.
                 if (workerAttackTargetUnit == nullptr ||
-                    tmpEnemyUnit->getHitPoints() + tmpEnemyUnit->getShields() + tmpEnemyUnit->getType().armor() + tmpEnemyUnit->getDefenseMatrixPoints() < workerAttackTargetUnit->getHitPoints() + workerAttackTargetUnit->getShields() + workerAttackTargetUnit->getType().armor() + workerAttackTargetUnit->getDefenseMatrixPoints())
+                    tmpEnemyUnit->getHitPoints() + tmpEnemyUnit->getShields() +
+                        tmpEnemyUnit->getType().armor() +
+                        tmpEnemyUnit->getDefenseMatrixPoints() <
+                    workerAttackTargetUnit->getHitPoints() +
+                        workerAttackTargetUnit->getShields() +
+                        workerAttackTargetUnit->getType().armor() +
+                        workerAttackTargetUnit->getDefenseMatrixPoints())
                 {
                     workerAttackTargetUnit = tmpEnemyUnit;
                 }
@@ -502,13 +624,18 @@ void ZZZKBotAIModule::onFrame()
         }
     }
 
+    // # if no workerTarget and low building health.
     if (workerAttackTargetUnit == nullptr && isBuildingLowLife)
     {
         for (auto& u : myUnits)
         {
+            // # if low health building.
             if (u->exists() && u->getType().isBuilding() && u->isCompleted() &&
-                u->getHitPoints() + u->getShields() < ((u->getType().maxHitPoints() + u->getType().maxShields()) * 3) / 10)
+                u->getHitPoints() + u->getShields() <
+                    ((u->getType().maxHitPoints() +
+                      u->getType().maxShields()) * 3) / 10)
             {
+                // # Try agian.
                 workerAttackTargetUnit =
                     u->getClosestUnit(
                         IsEnemy && IsVisible && IsDetected && Exists &&
@@ -518,6 +645,7 @@ void ZZZKBotAIModule::onFrame()
                         !IsInvincible,
                         256);
 
+                // # if can't find.
                 if (workerAttackTargetUnit != nullptr)
                 {
                     break;
@@ -532,8 +660,14 @@ void ZZZKBotAIModule::onFrame()
         {
             return
                 (bool)
-                (tmpUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::None ||
-                 Broodwar->getFrameCount() >= tmpUnit->getLastCommandFrame() + (Broodwar->getLatencyFrames() > 2 ? Broodwar->getLatencyFrames() - (tmpUnit->getLastCommandFrame() % 2) : Broodwar->getLatencyFrames()));
+                // # No previous unit command or targeted frame.
+                (tmpUnit->getLastCommand().getType() ==
+                        BWAPI::UnitCommandTypes::None ||
+                 Broodwar->getFrameCount() >= tmpUnit->getLastCommandFrame() +
+                    (Broodwar->getLatencyFrames() > 2 ?
+                        Broodwar->getLatencyFrames() -
+                            (tmpUnit->getLastCommandFrame() % 2) :
+                        Broodwar->getLatencyFrames()));
         };
 
     // Logic to make a building.
@@ -543,18 +677,21 @@ void ZZZKBotAIModule::onFrame()
     static BWAPI::Unit geyser = nullptr;
     auto geyserAuto = geyser;
     auto makeUnit =
-        [&startBaseAuto, &allUnitCount, &getPos, &gathererToResourceMapAuto, &resourceToGathererMapAuto, &lowLifeDrone, &geyserAuto, &noCmdPending](
-            const BWAPI::UnitType& buildingType,
-            BWAPI::Unit& reservedBuilder,
-            BWAPI::TilePosition& targetBuildLocation,
-            int& frameLastCheckedBuildLocation,
-            const int checkBuildLocationFreqFrames,
-            const bool isNeeded)
+        [&startBaseAuto, &allUnitCount, &getPos, &gathererToResourceMapAuto,
+         &resourceToGathererMapAuto, &lowLifeDrone, &geyserAuto, &noCmdPending]
+        (const BWAPI::UnitType& buildingType,
+         BWAPI::Unit& reservedBuilder,
+         BWAPI::TilePosition& targetBuildLocation,
+         int& frameLastCheckedBuildLocation,
+         const int checkBuildLocationFreqFrames,
+         const bool isNeeded)
         {
             BWAPI::UnitType builderType = buildingType.whatBuilds().first;
 
             // TODO: support making more than one building of a particular type.
-            if ((allUnitCount[buildingType] > 0 && buildingType != BWAPI::UnitTypes::Zerg_Hatchery) ||
+            // # if hatchery exists or unacceptable reservedBuilder.
+            if ((allUnitCount[buildingType] > 0 &&
+                 buildingType != BWAPI::UnitTypes::Zerg_Hatchery) ||
                 (reservedBuilder &&
                  (!reservedBuilder->exists() ||
                   reservedBuilder->getType() != builderType)))
@@ -566,12 +703,15 @@ void ZZZKBotAIModule::onFrame()
             const int oldUnitCount = allUnitCount[buildingType];
         
             // TODO: support making more than one building of a particular type.
+            // # if no buildingType exists and isNeeded.
             if (allUnitCount[buildingType] == 0 && isNeeded)
             {
                 BWAPI::Unit builder = reservedBuilder;
                 reservedBuilder = nullptr;
 
-                if (buildingType == BWAPI::UnitTypes::Zerg_Extractor && lowLifeDrone)
+                // # if buildtype is Extractor and a low life drone.
+                if (buildingType == BWAPI::UnitTypes::Zerg_Extractor &&
+                    lowLifeDrone)
                 {
                     builder = lowLifeDrone;
                 }
@@ -579,39 +719,71 @@ void ZZZKBotAIModule::onFrame()
                 auto isAvailableToBuild =
                     [&startBaseAuto, &noCmdPending](Unit& tmpUnit)
                     {
-                        return !tmpUnit->isConstructing() && noCmdPending(tmpUnit);
+                        return !tmpUnit->isConstructing() &&
+                               noCmdPending(tmpUnit);
                     };
 
+                // # if builder not set and ??.
                 if (builder == nullptr && startBaseAuto)
                 {        
-                    builder = startBaseAuto->getClosestUnit(GetType == builderType && IsIdle && !IsCarryingSomething && IsOwned && isAvailableToBuild);
+                    builder = startBaseAuto->getClosestUnit(
+                            GetType == builderType &&
+                            IsIdle && !IsCarryingSomething && IsOwned &&
+                            isAvailableToBuild);
+                    // # if builder remains not set.
                     if (builder == nullptr)
-                        builder = startBaseAuto->getClosestUnit(GetType == builderType && IsGatheringMinerals && !IsCarryingSomething && IsOwned && isAvailableToBuild);
+                        // # Searches within the mineral gatherers.
+                        builder = startBaseAuto->getClosestUnit(
+                            GetType == builderType && IsGatheringMinerals &&
+                            !IsCarryingSomething && IsOwned &&
+                            isAvailableToBuild);
                     // In case we are being worker rushed, don't necessarily wait for workers to return their
                     // minerals/gas powerup because we should start building the pool asap and the workers are
                     // likely to be almost always fighting.
                     if (buildingType == BWAPI::UnitTypes::Zerg_Spawning_Pool)
                     {
                         if (builder == nullptr)
-                            builder = startBaseAuto->getClosestUnit(GetType == builderType && IsIdle && !IsCarryingGas && IsOwned && isAvailableToBuild);
+                            // # Idle not carrying gas.
+                            builder = startBaseAuto->getClosestUnit(
+                                GetType == builderType && IsIdle &&
+                                !IsCarryingGas && IsOwned &&
+                                isAvailableToBuild);
                         if (builder == nullptr)
-                            builder = startBaseAuto->getClosestUnit(GetType == builderType && IsGatheringMinerals && IsOwned && isAvailableToBuild);
+                            // # All mineral gatherers.
+                            builder = startBaseAuto->getClosestUnit(
+                                GetType == builderType && IsGatheringMinerals &&
+                                IsOwned && isAvailableToBuild);
                         if (builder == nullptr)
-                            builder = startBaseAuto->getClosestUnit(GetType == builderType && IsGatheringGas && !IsCarryingGas && IsOwned && isAvailableToBuild);
+                            // # Gas gatherers not carrying gas.
+                            builder = startBaseAuto->getClosestUnit(
+                                GetType == builderType && IsGatheringGas &&
+                                !IsCarryingGas && IsOwned &&
+                                isAvailableToBuild);
                         if (builder == nullptr)
-                            builder = startBaseAuto->getClosestUnit(GetType == builderType && IsGatheringGas && IsOwned && isAvailableToBuild);
+                            // # Gas gatherers carrying gas.
+                            builder = startBaseAuto->getClosestUnit(
+                                GetType == builderType && IsGatheringGas &&
+                                IsOwned && isAvailableToBuild);
                     }
                 }
 
                 // If a unit was found
-                if (builder && (builder != oldReservedBuilder || isAvailableToBuild(builder)))
+                // # if builder replaced or available to build.
+                if (builder &&
+                    (builder != oldReservedBuilder ||
+                     isAvailableToBuild(builder)))
                 {
+                    // # if unacceptable targetBuildLocation or the
+                    // # proper frame.
                     if (targetBuildLocation == BWAPI::TilePositions::None ||
                         targetBuildLocation == BWAPI::TilePositions::Unknown ||
                         targetBuildLocation == BWAPI::TilePositions::Invalid ||
-                        Broodwar->getFrameCount() >= frameLastCheckedBuildLocation + checkBuildLocationFreqFrames)
+                        Broodwar->getFrameCount() >=
+                            frameLastCheckedBuildLocation +
+                            checkBuildLocationFreqFrames)
                     {
-                        if (buildingType == BWAPI::UnitTypes::Zerg_Extractor && startBaseAuto)
+                        if (buildingType == BWAPI::UnitTypes::Zerg_Extractor &&
+                            startBaseAuto)
                         {
                             geyserAuto =
                                 startBaseAuto->getClosestUnit(
@@ -626,53 +798,73 @@ void ZZZKBotAIModule::onFrame()
                         }
                         else
                         {
-                            targetBuildLocation = Broodwar->getBuildLocation(buildingType, builder->getTilePosition());
+                            targetBuildLocation = Broodwar->getBuildLocation(
+                                buildingType, builder->getTilePosition());
                         }
 
-                        frameLastCheckedBuildLocation = Broodwar->getFrameCount();
+                        frameLastCheckedBuildLocation =
+                            Broodwar->getFrameCount();
                     }
 
+                    // # if acceptable targetBuildLocation.
                     if (targetBuildLocation != BWAPI::TilePositions::None &&
                         targetBuildLocation != BWAPI::TilePositions::Unknown &&
                         targetBuildLocation != BWAPI::TilePositions::Invalid)
                     {
+                        // # if builder is able to buildType.
                         if (builder->canBuild(buildingType))
                         {
-                            if (builder->canBuild(buildingType, targetBuildLocation) &&
+                            // # if able to build and extractor
+                            // # acceptable.
+                            if (builder->canBuild(
+                                    buildingType, targetBuildLocation) &&
                                 (buildingType != BWAPI::UnitTypes::Zerg_Extractor ||
                                  (geyserAuto &&
                                   geyserAuto->exists() &&
-                                  geyserAuto->getType() == BWAPI::UnitTypes::Resource_Vespene_Geyser)))
+                                  geyserAuto->getType() ==
+                                    BWAPI::UnitTypes::Resource_Vespene_Geyser)))
                             {
-                                if (buildingType == BWAPI::UnitTypes::Zerg_Extractor &&
-                                    builder->canRightClick(PositionOrUnit(geyserAuto)) &&
+                                // # if Extractor, able to rightClick,
+                                // # distance to geyser greater than 16.
+                                if (buildingType ==
+                                        BWAPI::UnitTypes::Zerg_Extractor &&
+                                    builder->canRightClick(
+                                        PositionOrUnit(geyserAuto)) &&
                                     builder->getDistance(geyserAuto) > 16)
                                 {
                                     builder->rightClick(geyserAuto);
                                 }
                                 else
                                 {
-                                    builder->build(buildingType, targetBuildLocation);
+                                    builder->build(buildingType,
+                                                   targetBuildLocation);
                                 }
 
                                 reservedBuilder = builder;
                             }
                             else
                             {
-                                targetBuildLocation = BWAPI::TilePositions::None;
-                                if (buildingType == BWAPI::UnitTypes::Zerg_Extractor)
+                                targetBuildLocation =
+                                    BWAPI::TilePositions::None;
+                                if (buildingType ==
+                                        BWAPI::UnitTypes::Zerg_Extractor)
                                 {
                                     geyserAuto = nullptr;
                                 }
                             }
                         }
                         // Not enough minerals or it is not available (e.g. UMS game type).
-                        else if (buildingType == BWAPI::UnitTypes::Zerg_Spawning_Pool && Broodwar->self()->isUnitAvailable(buildingType))
+                        else if (buildingType ==
+                                    BWAPI::UnitTypes::Zerg_Spawning_Pool &&
+                                 Broodwar->self()->isUnitAvailable(buildingType))
                         {
                             // Not enough minerals, so send a worker out to the build location so it is on or nearer the
                             // position when we have enough minerals.
-                            const Position targetBuildPos = getPos(targetBuildLocation, buildingType);
-                            if (builder->canRightClick(PositionOrUnit(targetBuildPos)))
+                            const Position targetBuildPos = getPos(
+                                    targetBuildLocation, buildingType);
+                            // # if move to targetBuldPos.
+                            if (builder->canRightClick(
+                                    PositionOrUnit(targetBuildPos)))
                             {
                                 builder->rightClick(targetBuildPos);
                                 reservedBuilder = builder;
@@ -686,9 +878,19 @@ void ZZZKBotAIModule::onFrame()
 
                         if (reservedBuilder != nullptr)
                         {
-                            if (gathererToResourceMapAuto.find(reservedBuilder) != gathererToResourceMapAuto.end() && resourceToGathererMapAuto.find(gathererToResourceMapAuto.at(reservedBuilder)) != resourceToGathererMapAuto.end() && resourceToGathererMapAuto.at(gathererToResourceMapAuto.at(reservedBuilder)) == reservedBuilder)
+                            // # ?? and ?? and ??
+                            if (gathererToResourceMapAuto.find(reservedBuilder) !=
+                                    gathererToResourceMapAuto.end() &&
+                                resourceToGathererMapAuto.find(
+                                    gathererToResourceMapAuto.at(
+                                        reservedBuilder)) != resourceToGathererMapAuto.end() &&
+                                resourceToGathererMapAuto.at(
+                                    gathererToResourceMapAuto.at(reservedBuilder)) ==
+                                        reservedBuilder)
                             {
-                                resourceToGathererMapAuto.erase(gathererToResourceMapAuto.at(reservedBuilder));
+                                resourceToGathererMapAuto.erase(
+                                        gathererToResourceMapAuto.at(
+                                            reservedBuilder));
                             }
     
                             gathererToResourceMapAuto.erase(reservedBuilder);
@@ -697,20 +899,32 @@ void ZZZKBotAIModule::onFrame()
                 }
             }
 
+            // # if oldReservedBuilder and reservedBuilder are viable
+            // # but disimilar, and oldReservedBuilder has no command.
             if (oldReservedBuilder != nullptr &&
                 // TODO: support making more than one building of a particular type.
                 ((oldUnitCount == 0 && !isNeeded) ||
                  (reservedBuilder != nullptr &&
                   reservedBuilder != oldReservedBuilder)) &&
-                oldReservedBuilder->getLastCommand().getType() != BWAPI::UnitCommandTypes::None &&
+                oldReservedBuilder->getLastCommand().getType() !=
+                    BWAPI::UnitCommandTypes::None &&
                 noCmdPending(oldReservedBuilder) &&
                 oldReservedBuilder->canStop())
             {
                 oldReservedBuilder->stop();
 
-                if (gathererToResourceMapAuto.find(oldReservedBuilder) != gathererToResourceMapAuto.end() && resourceToGathererMapAuto.find(gathererToResourceMapAuto.at(oldReservedBuilder)) != resourceToGathererMapAuto.end() && resourceToGathererMapAuto.at(gathererToResourceMapAuto.at(oldReservedBuilder)) == oldReservedBuilder)
+                // # if gatherer to resource, resource to gatherer and
+                // # gather to resource to gatherer is correct.
+                if (gathererToResourceMapAuto.find(oldReservedBuilder) !=
+                        gathererToResourceMapAuto.end() &&
+                    resourceToGathererMapAuto.find(
+                        gathererToResourceMapAuto.at(oldReservedBuilder)) !=
+                            resourceToGathererMapAuto.end() &&
+                    resourceToGathererMapAuto.at(gathererToResourceMapAuto.at(
+                        oldReservedBuilder)) == oldReservedBuilder)
                 {
-                    resourceToGathererMapAuto.erase(gathererToResourceMapAuto.at(oldReservedBuilder));
+                    resourceToGathererMapAuto.erase(
+                        gathererToResourceMapAuto.at(oldReservedBuilder));
                 }
 
                 gathererToResourceMapAuto.erase(oldReservedBuilder);
@@ -729,28 +943,47 @@ void ZZZKBotAIModule::onFrame()
     int numWorkersTrainedThisFrame = 0;
 
     const BWAPI::UnitType groundArmyUnitType =
-        Broodwar->self()->getRace() == Races::Terran ? UnitTypes::Terran_Marine : (Broodwar->self()->getRace() == Races::Protoss ? UnitTypes::Protoss_Zealot : UnitTypes::Zerg_Zergling);
+        Broodwar->self()->getRace() == Races::Terran ?
+            UnitTypes::Terran_Marine :
+            (Broodwar->self()->getRace() == Races::Protoss ?
+                UnitTypes::Protoss_Zealot :
+                UnitTypes::Zerg_Zergling);
 
     const UnitType groundArmyBuildingType =
-        Broodwar->self()->getRace() == Races::Terran ? UnitTypes::Terran_Barracks : (Broodwar->self()->getRace() == Races::Protoss ? UnitTypes::Protoss_Gateway : UnitTypes::Zerg_Spawning_Pool);
+        Broodwar->self()->getRace() == Races::Terran ?
+            UnitTypes::Terran_Barracks :
+            (Broodwar->self()->getRace() == Races::Protoss ?
+                UnitTypes::Protoss_Gateway :
+                UnitTypes::Zerg_Spawning_Pool);
 
     // We are 4-pool'ing, hence the figure 24 (i.e. start moving a worker to the build location before we have enough minerals).
     // If drone(s) have died then don't move the builder until we have the full amount of minerals required.
     static Unit groundArmyBuildingBuilder = nullptr;
     // Block to restrict scope of variables.
     {
-        static BWAPI::TilePosition groundArmyBuildingLocation = BWAPI::TilePositions::None;
+        static BWAPI::TilePosition groundArmyBuildingLocation =
+            BWAPI::TilePositions::None;
         static int frameLastCheckedGroundArmyBuildingLocation = 0;
         const int checkGroundArmyBuildingLocationFreqFrames = (10 * 24);
         makeUnit(
-            groundArmyBuildingType, groundArmyBuildingBuilder, groundArmyBuildingLocation, frameLastCheckedGroundArmyBuildingLocation, checkGroundArmyBuildingLocationFreqFrames,
+            groundArmyBuildingType,
+            groundArmyBuildingBuilder,
+            groundArmyBuildingLocation,
+            frameLastCheckedGroundArmyBuildingLocation,
+            checkGroundArmyBuildingLocationFreqFrames,
             // Note: using allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] rather than incompleteUnitCount[BWAPI::UnitTypes::Zerg_Extractor]
             // because BWAPI seems to think it is completed.
-            allUnitCount[BWAPI::UnitTypes::Zerg_Drone] + numWorkersTrainedThisFrame + allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] >= 4 &&
+            // # lambda makeUnit argument isNeeded.
+            // # At least 4 drones of various states, able to build
+            // # SpawningPool and minerals about at cost.
+            allUnitCount[BWAPI::UnitTypes::Zerg_Drone] +
+                numWorkersTrainedThisFrame +
+                allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] >= 4 &&
             (Broodwar->canMake(groundArmyBuildingType) ||
              (groundArmyBuildingType == BWAPI::UnitTypes::Zerg_Spawning_Pool &&
               Broodwar->self()->deadUnitCount(BWAPI::UnitTypes::Zerg_Drone) == 0 &&
-              Broodwar->self()->minerals() >= groundArmyBuildingType.mineralPrice() - 24)));
+              Broodwar->self()->minerals() >=
+                  groundArmyBuildingType.mineralPrice() - 24)));
     }
 
     // Use the extractor trick whenever possible when supply-blocked, or when a drone is very low life,
@@ -758,48 +991,85 @@ void ZZZKBotAIModule::onFrame()
     static Unit extractorBuilder = nullptr;
     // Block to restrict scope of variables.
     {
-        static BWAPI::TilePosition extractorLocation = BWAPI::TilePositions::None;
+        static BWAPI::TilePosition extractorLocation =
+            BWAPI::TilePositions::None;
         static int frameLastCheckedExtractorLocation = 0;
         const int checkExtractorLocationFreqFrames = (1 * 24);
         makeUnit(
-            BWAPI::UnitTypes::Zerg_Extractor, extractorBuilder, extractorLocation, frameLastCheckedExtractorLocation, checkExtractorLocationFreqFrames,
+            BWAPI::UnitTypes::Zerg_Extractor,
+            extractorBuilder,
+            extractorLocation,
+            frameLastCheckedExtractorLocation,
+            checkExtractorLocationFreqFrames,
+            // # Argument isNeeded: able, at nessisary extractor trick,
+            // # to save a dieing drone or trasition out of four pool.
             Broodwar->canMake(BWAPI::UnitTypes::Zerg_Extractor) &&
-            (((supplyUsed == Broodwar->self()->supplyTotal() || supplyUsed == Broodwar->self()->supplyTotal() - 1) &&
+            (((supplyUsed == Broodwar->self()->supplyTotal() ||
+               supplyUsed == Broodwar->self()->supplyTotal() - 1) &&
               Broodwar->self()->minerals() >= 84 &&
-              !(Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh || supplyUsed >= 60)) ||
+              !(Broodwar->getFrameCount() >=
+                    transitionOutOfFourPoolFrameCountThresh ||
+              supplyUsed >= 60)) ||
              lowLifeDrone != nullptr ||
              (allUnitCount[BWAPI::UnitTypes::Zerg_Spawning_Pool] > 0 &&
-              allUnitCount[BWAPI::UnitTypes::Zerg_Drone] + numWorkersTrainedThisFrame >= 9 &&
-              (Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh || supplyUsed >= 60))));
+              allUnitCount[BWAPI::UnitTypes::Zerg_Drone] +
+                  numWorkersTrainedThisFrame >= 9 &&
+              (Broodwar->getFrameCount() >=
+                  transitionOutOfFourPoolFrameCountThresh ||
+               supplyUsed >= 60))));
     }
 
     // Morph another hatchery late-game.
     // Block to restrict scope of variables.
     {
         static Unit hatcheryBuilder = nullptr;
-        static BWAPI::TilePosition hatcheryLocation = BWAPI::TilePositions::None;
+        static BWAPI::TilePosition hatcheryLocation =
+            BWAPI::TilePositions::None;
         static int frameLastCheckedHatcheryLocation = 0;
         const int checkHatcheryLocationFreqFrames = (10 * 24);
         makeUnit(
-            BWAPI::UnitTypes::Zerg_Hatchery, hatcheryBuilder, hatcheryLocation, frameLastCheckedHatcheryLocation, checkHatcheryLocationFreqFrames,
+            BWAPI::UnitTypes::Zerg_Hatchery,
+            hatcheryBuilder,
+            hatcheryLocation,
+            frameLastCheckedHatcheryLocation,
+            checkHatcheryLocationFreqFrames,
+            // # Argument isNeeded: able, no more than 1 hatchary types,
+            // # not trasitioning out of four pool, speedlingBuildOrder
+            // # or a Lair or Hive.
             Broodwar->canMake(BWAPI::UnitTypes::Zerg_Hatchery) &&
-            allUnitCount[BWAPI::UnitTypes::Zerg_Hatchery] + allUnitCount[BWAPI::UnitTypes::Zerg_Lair] + allUnitCount[BWAPI::UnitTypes::Zerg_Hive] <= 1 &&
-            (Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh || supplyUsed >= 60) &&
-            (isSpeedlingBuildOrder ? true : (allUnitCount[BWAPI::UnitTypes::Zerg_Lair] + allUnitCount[BWAPI::UnitTypes::Zerg_Hive] > 0)));
+            allUnitCount[BWAPI::UnitTypes::Zerg_Hatchery] +
+                allUnitCount[BWAPI::UnitTypes::Zerg_Lair] +
+                allUnitCount[BWAPI::UnitTypes::Zerg_Hive] <= 1 &&
+            (Broodwar->getFrameCount() >=
+                transitionOutOfFourPoolFrameCountThresh ||
+            supplyUsed >= 60) &&
+            (isSpeedlingBuildOrder ? true :
+                (allUnitCount[BWAPI::UnitTypes::Zerg_Lair] +
+                 allUnitCount[BWAPI::UnitTypes::Zerg_Hive] > 0)));
     }
 
     // Morph to queen's nest late-game.
     // Block to restrict scope of variables.
     {
         static Unit queensNestBuilder = nullptr;
-        static BWAPI::TilePosition queensNestLocation = BWAPI::TilePositions::None;
+        static BWAPI::TilePosition queensNestLocation =
+            BWAPI::TilePositions::None;
         static int frameLastCheckedQueensNestLocation = 0;
         const int checkQueensNestLocationFreqFrames = (10 * 24);
         makeUnit(
-            BWAPI::UnitTypes::Zerg_Queens_Nest, queensNestBuilder, queensNestLocation, frameLastCheckedQueensNestLocation, checkQueensNestLocationFreqFrames,
+            BWAPI::UnitTypes::Zerg_Queens_Nest,
+            queensNestBuilder,
+            queensNestLocation,
+            frameLastCheckedQueensNestLocation,
+            checkQueensNestLocationFreqFrames,
+            // # Argument isNeeded: able, not trasisioning of four pool
+            // # not speedlingBuildOrder or a Spire exists.
             Broodwar->canMake(BWAPI::UnitTypes::Zerg_Queens_Nest) &&
-            (Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh || supplyUsed >= 60) &&
-            (isSpeedlingBuildOrder ? allUnitCount[BWAPI::UnitTypes::Zerg_Spire] > 0 : true));
+            (Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh ||
+             supplyUsed >= 60) &&
+            (isSpeedlingBuildOrder ?
+             allUnitCount[BWAPI::UnitTypes::Zerg_Spire] > 0 :
+             true));
     }
 
     // Morph to spire late-game. Check that a queen's nest and hive are already morphing/completed
@@ -812,9 +1082,17 @@ void ZZZKBotAIModule::onFrame()
         static int frameLastCheckedSpireLocation = 0;
         const int checkSpireLocationFreqFrames = (10 * 24);
         makeUnit(
-            BWAPI::UnitTypes::Zerg_Spire, spireBuilder, spireLocation, frameLastCheckedSpireLocation, checkSpireLocationFreqFrames,
+            BWAPI::UnitTypes::Zerg_Spire,
+            spireBuilder,
+            spireLocation,
+            frameLastCheckedSpireLocation,
+            checkSpireLocationFreqFrames,
+            // # Argument isNeeded: able, not trasisioning of four pool,
+            // # no existing spire, speedlingBuildOrder or Nest and hive
+            // # exist.
             Broodwar->canMake(BWAPI::UnitTypes::Zerg_Spire) &&
-            (Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh || supplyUsed >= 60) &&
+            (Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh ||
+             supplyUsed >= 60) &&
             allUnitCount[BWAPI::UnitTypes::Zerg_Greater_Spire] == 0 &&
             (isSpeedlingBuildOrder ? true :
              (allUnitCount[BWAPI::UnitTypes::Zerg_Queens_Nest] > 0 &&
@@ -828,16 +1106,25 @@ void ZZZKBotAIModule::onFrame()
     // Block to restrict scope of variables.
     {
         static Unit hydraDenBuilder = nullptr;
-        static BWAPI::TilePosition hydraDenLocation = BWAPI::TilePositions::None;
+        static BWAPI::TilePosition hydraDenLocation =
+            BWAPI::TilePositions::None;
         static int frameLastCheckedHydraDenLocation = 0;
         const int checkHydraDenLocationFreqFrames = (10 * 24);
         makeUnit(
-            BWAPI::UnitTypes::Zerg_Hydralisk_Den, hydraDenBuilder, hydraDenLocation, frameLastCheckedHydraDenLocation, checkHydraDenLocationFreqFrames,
+            BWAPI::UnitTypes::Zerg_Hydralisk_Den,
+            hydraDenBuilder,
+            hydraDenLocation,
+            frameLastCheckedHydraDenLocation,
+            checkHydraDenLocationFreqFrames,
+            // # Arguement isNeeded: able, transitioning out of four
+            // # pool, various existing buildigns.
             Broodwar->canMake(BWAPI::UnitTypes::Zerg_Hydralisk_Den) &&
-            (Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh || supplyUsed >= 60) &&
+            (Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh ||
+                supplyUsed >= 60) &&
             allUnitCount[BWAPI::UnitTypes::Zerg_Queens_Nest] > 0 &&
             allUnitCount[BWAPI::UnitTypes::Zerg_Hive] > 0 &&
-            allUnitCount[BWAPI::UnitTypes::Zerg_Spire] + allUnitCount[BWAPI::UnitTypes::Zerg_Greater_Spire] > 0 &&
+            allUnitCount[BWAPI::UnitTypes::Zerg_Spire] +
+                allUnitCount[BWAPI::UnitTypes::Zerg_Greater_Spire] > 0 &&
             allUnitCount[BWAPI::UnitTypes::Zerg_Guardian] > 8);
     }
 
@@ -847,13 +1134,21 @@ void ZZZKBotAIModule::onFrame()
     // Block to restrict scope of variables.
     {
         static Unit ultraCavernBuilder = nullptr;
-        static BWAPI::TilePosition ultraCavernLocation = BWAPI::TilePositions::None;
+        static BWAPI::TilePosition ultraCavernLocation =    
+            BWAPI::TilePositions::None;
         static int frameLastCheckedUltraCavernLocation = 0;
         const int checkUltraCavernLocationFreqFrames = (10 * 24);
         makeUnit(
-            BWAPI::UnitTypes::Zerg_Ultralisk_Cavern, ultraCavernBuilder, ultraCavernLocation, frameLastCheckedUltraCavernLocation, checkUltraCavernLocationFreqFrames,
+            BWAPI::UnitTypes::Zerg_Ultralisk_Cavern,
+            ultraCavernBuilder,
+            ultraCavernLocation,
+            frameLastCheckedUltraCavernLocation,
+            checkUltraCavernLocationFreqFrames,
+            // # Argument isNeeded: able, transitioning out of four
+            // # pool, various other buildings.
             Broodwar->canMake(BWAPI::UnitTypes::Zerg_Ultralisk_Cavern) &&
-            (Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh || supplyUsed >= 60) &&
+            (Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh ||
+             supplyUsed >= 60) &&
             allUnitCount[BWAPI::UnitTypes::Zerg_Hydralisk_Den] > 0 &&
             allUnitCount[BWAPI::UnitTypes::Zerg_Greater_Spire] > 0 &&
             allUnitCount[BWAPI::UnitTypes::Zerg_Guardian] > 8);
@@ -862,24 +1157,34 @@ void ZZZKBotAIModule::onFrame()
     // A horrible way of making just enough gatherers gather gas, but it seems to work ok, so don't worry about it for the time being.
     for (auto& u : myUnits)
     {
-        if (u->getType() == BWAPI::UnitTypes::Zerg_Extractor && u->isCompleted())
+        if (u->getType() == BWAPI::UnitTypes::Zerg_Extractor &&
+            u->isCompleted())
         {
             static int lastAddedGathererToRefinery = 0;
-            if (Broodwar->getFrameCount() > lastAddedGathererToRefinery + (3 * 24))
+            // # if greater than realative 3 minutes.
+            if (Broodwar->getFrameCount() >
+                    lastAddedGathererToRefinery + (3 * 24))
             {
                 BWAPI::Unit gasGatherer = u->getClosestUnit(
                     IsOwned && Exists && GetType == BWAPI::UnitTypes::Zerg_Drone &&
-                    (CurrentOrder == BWAPI::Orders::MoveToGas || CurrentOrder == BWAPI::Orders::WaitForGas),
+                    (CurrentOrder == BWAPI::Orders::MoveToGas ||
+                     CurrentOrder == BWAPI::Orders::WaitForGas),
                     256);
 
+                // # if speedlingBuildOrder and is upgrading speed.
                 if (isSpeedlingBuildOrder &&
                     (/*Broodwar->self()->gas() >= BWAPI::UpgradeTypes::Metabolic_Boost.gasPrice() ||*/
-                     Broodwar->self()->isUpgrading(BWAPI::UpgradeTypes::Metabolic_Boost) /*||
+                     Broodwar->self()->isUpgrading(
+                         BWAPI::UpgradeTypes::Metabolic_Boost) /*||
                      Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Metabolic_Boost) == Broodwar->self()->getMaxUpgradeLevel(BWAPI::UpgradeTypes::Metabolic_Boost)*/))
                 {
+                    // # if gasGather.
                     if (gasGatherer != nullptr)
                     {
-                        if (!gasGatherer->isConstructing() && noCmdPending(gasGatherer) && gasGatherer->canStop())
+                        // if not constructing, commanded and canStop.
+                        if (!gasGatherer->isConstructing() &&
+                            noCmdPending(gasGatherer) &&
+                            gasGatherer->canStop())
                         {
                             gasGatherer->stop();
                             continue;
@@ -888,34 +1193,58 @@ void ZZZKBotAIModule::onFrame()
                 }
                 else
                 {
+                    // # if no gasGatherer.
                     if (gasGatherer == nullptr)
                     {        
                         auto isAvailableToGatherFrom =
                             [&u, &noCmdPending](Unit& tmpUnit)
                             {
-                                return !tmpUnit->isConstructing() && noCmdPending(tmpUnit) && tmpUnit->canGather(u);
+                                return !tmpUnit->isConstructing() &&
+                                    noCmdPending(tmpUnit) &&
+                                    tmpUnit->canGather(u);
                             };
 
-                        BWAPI::Unit newGasGatherer = newGasGatherer = u->getClosestUnit(GetType == BWAPI::UnitTypes::Zerg_Drone && IsIdle && !IsCarryingSomething && IsOwned && isAvailableToGatherFrom);
+                        BWAPI::Unit newGasGatherer = u->getClosestUnit(
+                            // # Drone, Idle, notCarrying, Owned and
+                            // # isAvailable
+                            GetType == BWAPI::UnitTypes::Zerg_Drone && IsIdle &&
+                            !IsCarryingSomething && IsOwned &&
+                            isAvailableToGatherFrom);
                         if (newGasGatherer == nullptr)
-                            newGasGatherer = u->getClosestUnit(GetType == BWAPI::UnitTypes::Zerg_Drone && IsGatheringMinerals && !IsCarryingSomething && IsOwned && isAvailableToGatherFrom);
+                            newGasGatherer = u->getClosestUnit(
+                                // #  +gatheringMinerals
+                                GetType == BWAPI::UnitTypes::Zerg_Drone &&
+                                IsGatheringMinerals && !IsCarryingSomething &&
+                                IsOwned && isAvailableToGatherFrom);
                         if (newGasGatherer == nullptr)
-                            newGasGatherer = u->getClosestUnit(GetType == BWAPI::UnitTypes::Zerg_Drone && IsIdle && !IsCarryingGas && IsOwned && isAvailableToGatherFrom);
+                            newGasGatherer = u->getClosestUnit(
+                                // # -Isidle, +notCarryingGas
+                                GetType == BWAPI::UnitTypes::Zerg_Drone &&
+                                IsIdle && !IsCarryingGas && IsOwned &&
+                                isAvailableToGatherFrom);
                         if (newGasGatherer == nullptr)
-                            newGasGatherer = u->getClosestUnit(GetType == BWAPI::UnitTypes::Zerg_Drone && IsGatheringMinerals && IsOwned && isAvailableToGatherFrom);
+                            newGasGatherer = u->getClosestUnit(
+                                 // # +isGateringMinerals, +carries
+                                 GetType == BWAPI::UnitTypes::Zerg_Drone &&
+                                 IsGatheringMinerals && IsOwned &&
+                                 isAvailableToGatherFrom);
+
                         // If a unit was found
                         if (newGasGatherer)
                         {
                             newGasGatherer->gather(u);
         
-                            if (resourceToGathererMap.find(u) != resourceToGathererMap.end())
+                            if (resourceToGathererMap.find(u) !=
+                                    resourceToGathererMap.end())
                             {
-                                gathererToResourceMap.erase(resourceToGathererMap.at(u));
+                                gathererToResourceMap.erase(
+                                        resourceToGathererMap.at(u));
                             }
         
                             resourceToGathererMap[u] = newGasGatherer;
                             gathererToResourceMap[newGasGatherer] = u;
-                            lastAddedGathererToRefinery = Broodwar->getFrameCount();
+                            lastAddedGathererToRefinery =
+                                Broodwar->getFrameCount();
                         }
                     }
         
@@ -930,7 +1259,8 @@ void ZZZKBotAIModule::onFrame()
     // The main loop.
     for (auto& u : myUnits)
     {
-        if (u->getLastCommandFrame() == Broodwar->getFrameCount() && u->getLastCommand().getType() != BWAPI::UnitCommandTypes::None)
+        if (u->getLastCommandFrame() == Broodwar->getFrameCount() &&
+            u->getLastCommand().getType() != BWAPI::UnitCommandTypes::None)
         {
             // Already issued a command to this unit this frame (e.g. a build command) so skip this unit.
             continue;
@@ -940,16 +1270,23 @@ void ZZZKBotAIModule::onFrame()
             continue;
 
         // Cancel morph when appropriate if we are using the extractor trick.
-        if (u->getType() == BWAPI::UnitTypes::Zerg_Extractor && !u->isCompleted())
+        if (u->getType() == BWAPI::UnitTypes::Zerg_Extractor &&
+            !u->isCompleted())
         {
-            if (Broodwar->getFrameCount() < transitionOutOfFourPoolFrameCountThresh &&
+            // # if transitioning out of four pool, less than 60 supply,
+            // # no spawningPool or almost at supply total, lack
+            // # minerals or larva and ?? supply buffed to total or
+            // # proper frame.
+            if (Broodwar->getFrameCount() <
+                    transitionOutOfFourPoolFrameCountThresh &&
                 supplyUsed < 60 &&
                 (completedUnitCount[BWAPI::UnitTypes::Zerg_Spawning_Pool] == 0 ||
                  (supplyUsed >= Broodwar->self()->supplyTotal() - 1 ||
                   ((Broodwar->self()->minerals() < 50 ||
                     allUnitCount[BWAPI::UnitTypes::Zerg_Larva] == 0) &&
                    supplyUsed < Broodwar->self()->supplyTotal() - 3) ||
-                  u->getRemainingBuildTime() <= Broodwar->getRemainingLatencyFrames() + 2)))
+                  u->getRemainingBuildTime() <=
+                      Broodwar->getRemainingLatencyFrames() + 2)))
             {
                 if (u->canCancelMorph())
                 {
@@ -966,7 +1303,11 @@ void ZZZKBotAIModule::onFrame()
         {
             // Note: using allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] rather than incompleteUnitCount[BWAPI::UnitTypes::Zerg_Extractor]
             // because BWAPI seems to think it is completed.
-            if (allUnitCount[BWAPI::UnitTypes::Zerg_Drone] + numWorkersTrainedThisFrame + allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] == 0 &&
+            // # if no drones varieties, less than 50 minerals or
+            // # no hatchary varieties and no larva.
+            if (allUnitCount[BWAPI::UnitTypes::Zerg_Drone] +
+                    numWorkersTrainedThisFrame +
+                    allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] == 0 &&
                 (Broodwar->self()->minerals() < 50 ||
                  (allUnitCount[BWAPI::UnitTypes::Zerg_Hatchery] == 0 &&
                   allUnitCount[BWAPI::UnitTypes::Zerg_Lair] == 0 &&
@@ -985,12 +1326,18 @@ void ZZZKBotAIModule::onFrame()
         // to get any drones if it were to complete (assuming any incomplete hatcheries are left to complete).
         // Note: using allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] rather than incompleteUnitCount[BWAPI::UnitTypes::Zerg_Extractor]
         // because BWAPI seems to think it is completed.
+        // # if atleast a spawning pool, an incomplete egg, no drone
+        // # varieties, less than 50 minerals or no hatchery varieties
+        // # and no lava.
         if (completedUnitCount[BWAPI::UnitTypes::Zerg_Spawning_Pool] > 0 &&
             u->getType() == BWAPI::UnitTypes::Zerg_Egg &&
             !u->isCompleted() &&
+            // ? There was just a check for zergEggType?
             u->getBuildType() != BWAPI::UnitTypes::None &&
             u->getBuildType() != BWAPI::UnitTypes::Unknown &&
-            allUnitCount[BWAPI::UnitTypes::Zerg_Drone] + numWorkersTrainedThisFrame + allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] == 0 &&
+            allUnitCount[BWAPI::UnitTypes::Zerg_Drone] +
+                numWorkersTrainedThisFrame +
+                allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] == 0 &&
             (Broodwar->self()->minerals() < 50 ||
              (allUnitCount[BWAPI::UnitTypes::Zerg_Hatchery] == 0 &&
               allUnitCount[BWAPI::UnitTypes::Zerg_Lair] == 0 &&
@@ -1010,9 +1357,13 @@ void ZZZKBotAIModule::onFrame()
         {
             // Note: using allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] rather than incompleteUnitCount[BWAPI::UnitTypes::Zerg_Extractor]
             // because BWAPI seems to think it is completed.
+            // # if a spawning pool exists, lost a drone, less than 3
+            // # drone varieties.
             if (allUnitCount[BWAPI::UnitTypes::Zerg_Spawning_Pool] == 1 &&
                 Broodwar->self()->deadUnitCount(BWAPI::UnitTypes::Zerg_Drone) > 0 &&
-                allUnitCount[BWAPI::UnitTypes::Zerg_Drone] + numWorkersTrainedThisFrame + allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] < 3)
+                allUnitCount[BWAPI::UnitTypes::Zerg_Drone] +
+                    numWorkersTrainedThisFrame +
+                    allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] < 3)
             {
                 if (u->canCancelMorph())
                 {
@@ -1039,31 +1390,46 @@ void ZZZKBotAIModule::onFrame()
 
         // Could also take into account higher ground advantage, cover advantage (e.g. in trees), HP regen, shields regen,
         // effects of spells like dark swarm. The list is endless.
+        // # Most threatening to least: IsPowered, not lockedDown or
+        // # Maelstrommed, unit canAttack (closerworker, less
+        // # durability, not healing, constructing, not pleagued,
+        // # isAttacking, less spell cooldown, flyer, start attacking,
+        // # is stationary or slowing down), Pylon, Centers, (Air,
+        // # Terran mech and infantry, ling and hydra) production,
+        // # Queen's Nest, Archives, zealot and goon production,
+        // # tech buildings, eggs, larva, depot.
         auto getBestEnemyThreatUnitLambda =
             [&u](const BWAPI::Unit& bestSoFarUnit, const BWAPI::Unit& curUnit)
             {
+                // # Differentiate power.
                 if (curUnit->isPowered() != bestSoFarUnit->isPowered())
                 {
+                    // # The powered unit.
                     return curUnit->isPowered() ? curUnit : bestSoFarUnit;
                 }
-
+                // # Differnetiate lockdown.
                 if (curUnit->isLockedDown() != bestSoFarUnit->isLockedDown())
                 {
+                    // # Not the lockedDown unit.
                     return !curUnit->isLockedDown() ? curUnit : bestSoFarUnit;
                 }
-
+                // # Differentiate maelstrommed.
                 if (curUnit->isMaelstrommed() != bestSoFarUnit->isMaelstrommed())
                 {
+                    // # Not the maelstrommed unit.
                     return !curUnit->isMaelstrommed() ? curUnit : bestSoFarUnit;
                 }
 
                 // Prefer to attack units that can return fire or could be tactical threats in certain scenarios.
                 const BWAPI::UnitType curUnitType = curUnit->getType();
-                const BWAPI::UnitType bestSoFarUnitType = bestSoFarUnit->getType();
+                const BWAPI::UnitType bestSoFarUnitType =
+                    bestSoFarUnit->getType();
                 const BWAPI::WeaponType curUnitWeaponType =
-                    u->isFlying() ? curUnitType.airWeapon() : curUnitType.groundWeapon();
+                    u->isFlying() ? curUnitType.airWeapon() :
+                        curUnitType.groundWeapon();
                 const BWAPI::WeaponType bestSoFarUnitWeaponType =
-                    u->isFlying() ? bestSoFarUnitType.airWeapon() : bestSoFarUnitType.groundWeapon();
+                    u->isFlying() ? bestSoFarUnitType.airWeapon() :
+                        bestSoFarUnitType.groundWeapon();
                 if (curUnitWeaponType != bestSoFarUnitWeaponType)
                 {
                     if (curUnitWeaponType == BWAPI::WeaponTypes::None &&
@@ -1115,7 +1481,9 @@ void ZZZKBotAIModule::onFrame()
                     }
                 }
 
-                auto unitTypeScoreLambda = [](const BWAPI::UnitType& unitType) -> int
+                auto unitTypeScoreLambda =
+                    []
+                    (const BWAPI::UnitType& unitType) -> int
                     {
                         return
                             unitType == BWAPI::UnitTypes::Protoss_Pylon ? 30000 :
@@ -1161,28 +1529,39 @@ void ZZZKBotAIModule::onFrame()
                     };
 
                 const int curUnitTypeScore = unitTypeScoreLambda(curUnitType);
-                const int bestSoFarUnitTypeScore = unitTypeScoreLambda(bestSoFarUnitType);
+                const int bestSoFarUnitTypeScore =
+                    unitTypeScoreLambda(bestSoFarUnitType);
                 if (curUnitTypeScore != bestSoFarUnitTypeScore)
                 {
-                    return curUnitTypeScore > bestSoFarUnitTypeScore ? curUnit : bestSoFarUnit;
+                    return curUnitTypeScore >
+                        bestSoFarUnitTypeScore ? curUnit : bestSoFarUnit;
                 }
 
                 // If the set of units being considered only contains workers or contains no workers
                 // then this should work as intended.
-                if (curUnit->getType().isWorker() && bestSoFarUnit->getType().isWorker() &&
-                    !u->isInWeaponRange(curUnit) && !u->isInWeaponRange(bestSoFarUnit) &&
+                if (curUnit->getType().isWorker() &&
+                    bestSoFarUnit->getType().isWorker() &&
+                    !u->isInWeaponRange(curUnit) &&
+                    !u->isInWeaponRange(bestSoFarUnit) &&
                     u->getDistance(curUnit) != u->getDistance(bestSoFarUnit))
                 {
-                    return (u->getDistance(curUnit) < u->getDistance(bestSoFarUnit)) ? curUnit : bestSoFarUnit;
+                    return (u->getDistance(curUnit) <
+                                    u->getDistance(bestSoFarUnit)) ?
+                                curUnit :
+                                bestSoFarUnit;
                 }
 
                 const int curUnitLifeForceScore =
-                    curUnit->getHitPoints() + curUnit->getShields() + curUnitType.armor() + curUnit->getDefenseMatrixPoints();
+                    curUnit->getHitPoints() + curUnit->getShields() +
+                    curUnitType.armor() + curUnit->getDefenseMatrixPoints();
                 const int bestSoFarUnitLifeForceScore =
-                    bestSoFarUnit->getHitPoints() + bestSoFarUnit->getShields() + bestSoFarUnitType.armor() + bestSoFarUnit->getDefenseMatrixPoints();
+                    bestSoFarUnit->getHitPoints() +
+                    bestSoFarUnit->getShields() + bestSoFarUnitType.armor() +
+                    bestSoFarUnit->getDefenseMatrixPoints();
                 if (curUnitLifeForceScore != bestSoFarUnitLifeForceScore)
                 {
-                    return curUnitLifeForceScore < bestSoFarUnitLifeForceScore ? curUnit : bestSoFarUnit;
+                    return curUnitLifeForceScore < bestSoFarUnitLifeForceScore ?
+                            curUnit : bestSoFarUnit;
                 }
 
                 // Whether irradiate is good or bad is very situational (it depends whether it is
@@ -1219,9 +1598,14 @@ void ZZZKBotAIModule::onFrame()
                     return !curUnit->isPlagued() ? curUnit : bestSoFarUnit;
                 }
 
-                if ((curUnit->getTarget() == u) != (bestSoFarUnit->getTarget() == u) || (curUnit->getOrderTarget() == u) != (bestSoFarUnit->getOrderTarget() == u))
+                if ((curUnit->getTarget() == u) != (bestSoFarUnit->getTarget() == u) ||
+                    (curUnit->getOrderTarget() == u) != (bestSoFarUnit->getOrderTarget() == u))
                 {
-                    return ((curUnit->getTarget() == u && bestSoFarUnit->getTarget() != u) || (curUnit->getOrderTarget() == u && bestSoFarUnit->getOrderTarget() != u)) ? curUnit : bestSoFarUnit;
+                    return ((curUnit->getTarget() == u &&
+                             bestSoFarUnit->getTarget() != u) ||
+                            (curUnit->getOrderTarget() == u &&
+                             bestSoFarUnit->getOrderTarget() != u)) ?
+                               curUnit : bestSoFarUnit;
                 }
 
                 if (curUnit->isAttacking() != bestSoFarUnit->isAttacking())
@@ -1231,27 +1615,34 @@ void ZZZKBotAIModule::onFrame()
 
                 if (curUnit->getSpellCooldown() != bestSoFarUnit->getSpellCooldown())
                 {
-                    return curUnit->getSpellCooldown() < bestSoFarUnit->getSpellCooldown() ? curUnit : bestSoFarUnit;
+                    return curUnit->getSpellCooldown() <
+                                    bestSoFarUnit->getSpellCooldown() ?
+                                curUnit : bestSoFarUnit;
                 }
 
                 if (!u->isFlying())
                 {
                     if (curUnit->getGroundWeaponCooldown() != bestSoFarUnit->getGroundWeaponCooldown())
                     {
-                        return curUnit->getGroundWeaponCooldown() < bestSoFarUnit->getGroundWeaponCooldown() ? curUnit : bestSoFarUnit;
+                        return curUnit->getGroundWeaponCooldown() <
+                                    bestSoFarUnit->getGroundWeaponCooldown() ?
+                                curUnit : bestSoFarUnit;
                     }
                 }
                 else
                 {    
                     if (curUnit->getAirWeaponCooldown() != bestSoFarUnit->getAirWeaponCooldown())
                     {
-                        return curUnit->getAirWeaponCooldown() < bestSoFarUnit->getAirWeaponCooldown() ? curUnit : bestSoFarUnit;
+                        return curUnit->getAirWeaponCooldown() <
+                                    bestSoFarUnit->getAirWeaponCooldown() ?
+                                curUnit : bestSoFarUnit;
                     }
                 }
 
                 if (curUnit->isStartingAttack() != bestSoFarUnit->isStartingAttack())
                 {
-                    return !curUnit->isStartingAttack() ? curUnit : bestSoFarUnit;
+                    return !curUnit->isStartingAttack() ?
+                            curUnit : bestSoFarUnit;
                 }
 
                 if (curUnit->isAttackFrame() != bestSoFarUnit->isAttackFrame())
@@ -1286,11 +1677,13 @@ void ZZZKBotAIModule::onFrame()
                 {
                     if (curUnit->isMoving() && bestSoFarUnit->isMoving())
                     {
-                        return !curUnit->isAccelerating() ? curUnit : bestSoFarUnit;
+                        return !curUnit->isAccelerating() ?
+                                curUnit : bestSoFarUnit;
                     }
                     else if (!curUnit->isMoving() && !bestSoFarUnit->isMoving())
                     {
-                        return !curUnit->isAccelerating() ? curUnit : bestSoFarUnit;
+                        return !curUnit->isAccelerating() ?
+                                curUnit : bestSoFarUnit;
                     }
                 }
 
@@ -1303,7 +1696,8 @@ void ZZZKBotAIModule::onFrame()
                 // Prefer to attack enemy units that are being constructed.
                 if (curUnit->isBeingConstructed() != bestSoFarUnit->isBeingConstructed())
                 {
-                    return curUnit->isBeingConstructed() ? curUnit : bestSoFarUnit;
+                    return curUnit->isBeingConstructed() ?
+                            curUnit : bestSoFarUnit;
                 }
 
                 // Prefer to attack enemy units that are incomplete.
@@ -1314,10 +1708,12 @@ void ZZZKBotAIModule::onFrame()
 
                 // Prefer to attack bunkers.
                 // Note: getType()->canAttack() is false for a bunker.
-                if ((curUnitType == BWAPI::UnitTypes::Terran_Bunker || bestSoFarUnitType == BWAPI::UnitTypes::Terran_Bunker) &&
+                if ((curUnitType == BWAPI::UnitTypes::Terran_Bunker ||
+                     bestSoFarUnitType == BWAPI::UnitTypes::Terran_Bunker) &&
                     curUnitType != bestSoFarUnitType)
                 {
-                    return curUnitType == BWAPI::UnitTypes::Terran_Bunker ? curUnit : bestSoFarUnit;
+                    return curUnitType == BWAPI::UnitTypes::Terran_Bunker ?
+                            curUnit : bestSoFarUnit;
                 }
 
                 // Prefer to attack enemy units that can attack.
@@ -1339,12 +1735,14 @@ void ZZZKBotAIModule::onFrame()
 
                 if (curUnit->isCarryingMinerals() != bestSoFarUnit->isCarryingMinerals())
                 {
-                    return curUnit->isCarryingMinerals() ? curUnit : bestSoFarUnit;
+                    return curUnit->isCarryingMinerals() ?
+                            curUnit : bestSoFarUnit;
                 }
 
                 if (curUnit->isGatheringMinerals() != bestSoFarUnit->isGatheringMinerals())
                 {
-                    return curUnit->isGatheringMinerals() ? curUnit : bestSoFarUnit;
+                    return curUnit->isGatheringMinerals() ?
+                            curUnit : bestSoFarUnit;
                 }
 
                 // For now, let's prefer to attack mineral gatherers than gas gatherers,
@@ -1372,26 +1770,36 @@ void ZZZKBotAIModule::onFrame()
                     return !curUnit->isBlind() ? curUnit : bestSoFarUnit;
                 }
 
-                if ((curUnitType == BWAPI::UnitTypes::Protoss_Carrier || curUnitType == UnitTypes::Hero_Gantrithor) &&
-                    (bestSoFarUnitType == BWAPI::UnitTypes::Protoss_Carrier || bestSoFarUnitType == UnitTypes::Hero_Gantrithor) &&
+                if ((curUnitType == BWAPI::UnitTypes::Protoss_Carrier ||
+                     curUnitType == UnitTypes::Hero_Gantrithor) &&
+                    (bestSoFarUnitType == BWAPI::UnitTypes::Protoss_Carrier ||
+                     bestSoFarUnitType == UnitTypes::Hero_Gantrithor) &&
                     curUnit->getInterceptorCount() != bestSoFarUnit->getInterceptorCount())
                 {
-                    return curUnit->getInterceptorCount() > bestSoFarUnit->getInterceptorCount() ? curUnit : bestSoFarUnit;
+                    return curUnit->getInterceptorCount() >
+                                bestSoFarUnit->getInterceptorCount() ?
+                            curUnit : bestSoFarUnit;
                 }
 
                 if (u->getDistance(curUnit) != u->getDistance(bestSoFarUnit))
                 {
-                    return (u->getDistance(curUnit) < u->getDistance(bestSoFarUnit)) ? curUnit : bestSoFarUnit;
+                    return (u->getDistance(curUnit) <
+                                u->getDistance(bestSoFarUnit)) ?
+                            curUnit : bestSoFarUnit;
                 }
 
                 if (curUnit->getAcidSporeCount() != bestSoFarUnit->getAcidSporeCount())
                 {
-                    return curUnit->getAcidSporeCount() < bestSoFarUnit->getAcidSporeCount() ? curUnit : bestSoFarUnit;
+                    return curUnit->getAcidSporeCount() <
+                                bestSoFarUnit->getAcidSporeCount() ?
+                            curUnit : bestSoFarUnit;
                 }
 
                 if (curUnit->getKillCount() != bestSoFarUnit->getKillCount())
                 {
-                    return curUnit->getKillCount() < bestSoFarUnit->getKillCount() ? curUnit : bestSoFarUnit;
+                    return curUnit->getKillCount() <
+                                bestSoFarUnit->getKillCount() ?
+                            curUnit : bestSoFarUnit;
                 }
 
                 if (curUnit->isIdle() != bestSoFarUnit->isIdle())
@@ -1412,18 +1820,25 @@ void ZZZKBotAIModule::onFrame()
                 return bestSoFarUnit;
             };
 
-        const BWAPI::UnitType workerUnitType = Broodwar->self()->getRace().getWorker();
+        const BWAPI::UnitType workerUnitType =
+            Broodwar->self()->getRace().getWorker();
 
         if (u->getType().isWorker())
         {
             // Attack enemy units of opportunity (e.g. enemy worker scout(s) that are harassing my gatherers).
             // Don't issue a new command if we are a low life drone planning to build an extractor.
+            // # if not low life or extractorBuilder,  isIdle or no
+            // # command, or proper frame.
             if ((u != lowLifeDrone || u != extractorBuilder) &&
-                (u->isIdle() || u->getLastCommand().getType() == BWAPI::UnitCommandTypes::None ||
-                 Broodwar->getFrameCount() >= u->getLastCommandFrame() + 2 - (Broodwar->getLatencyFrames() > 2 ? u->getLastCommandFrame() % 2 : 0)))
+                (u->isIdle() ||
+                 u->getLastCommand().getType() == BWAPI::UnitCommandTypes::None ||
+                 Broodwar->getFrameCount() >= u->getLastCommandFrame() + 2 -
+                    (Broodwar->getLatencyFrames() > 2 ?
+                     u->getLastCommandFrame() % 2 : 0)))
             {
                 // Add some frames to cover frame(s) that might be needed to change direction.
-                if (u->getGroundWeaponCooldown() <= Broodwar->getRemainingLatencyFrames() + 2)
+                if (u->getGroundWeaponCooldown() <=
+                        Broodwar->getRemainingLatencyFrames() + 2)
                 {
                     const BWAPI::Unit bestAttackableEnemyNonBuildingUnit =
                         workerAttackTargetUnit != nullptr ?
@@ -1438,20 +1853,36 @@ void ZZZKBotAIModule::onFrame()
                             // situation to use the extractor trick (it just stops us healing drones with the extractor trick).
                             // The lings will attack buildings near my base when they spawn anyway.
                             !IsBuilding &&
-                            [&u](Unit& tmpUnit) { return u->isInWeaponRange(tmpUnit) && u->canAttack(PositionOrUnit(tmpUnit)); },
-                            u->getPosition(),
-                            std::max(u->getType().dimensionLeft(), std::max(u->getType().dimensionUp(), std::max(u->getType().dimensionRight(), u->getType().dimensionDown()))) + Broodwar->self()->weaponMaxRange(u->getType().groundWeapon()));
+                            [&u](Unit& tmpUnit)
+                            { return u->isInWeaponRange(tmpUnit) &&
+                                u->canAttack(PositionOrUnit(tmpUnit)); },
+                            u->getPosition(), std::max(
+                                u->getType().dimensionLeft(), std::max(
+                                    u->getType().dimensionUp(), std::max(
+                                        u->getType().dimensionRight(),
+                                        u->getType().dimensionDown()))) +
+                                            Broodwar->self()->weaponMaxRange(
+                                                u->getType().groundWeapon()));
     
-                    if (bestAttackableEnemyNonBuildingUnit && u->canAttack(PositionOrUnit(bestAttackableEnemyNonBuildingUnit)))
+                    if (bestAttackableEnemyNonBuildingUnit &&
+                        u->canAttack(PositionOrUnit(bestAttackableEnemyNonBuildingUnit)))
                     {
                         const BWAPI::Unit oldOrderTarget = u->getTarget();
-                        if (u->isIdle() || oldOrderTarget == nullptr || oldOrderTarget != bestAttackableEnemyNonBuildingUnit)
+                        if (u->isIdle() || oldOrderTarget == nullptr ||
+                            oldOrderTarget != bestAttackableEnemyNonBuildingUnit)
                         {
                             u->attack(bestAttackableEnemyNonBuildingUnit);
     
-                            if (gathererToResourceMap.find(u) != gathererToResourceMap.end() && resourceToGathererMap.find(gathererToResourceMap.at(u)) != resourceToGathererMap.end() && resourceToGathererMap.at(gathererToResourceMap.at(u)) == u)
+                            if (gathererToResourceMap.find(u) !=
+                                        gathererToResourceMap.end() &&
+                                resourceToGathererMap.find(
+                                    gathererToResourceMap.at(u)) !=
+                                        resourceToGathererMap.end() &&
+                                resourceToGathererMap.at(
+                                    gathererToResourceMap.at(u)) == u)
                             {
-                                resourceToGathererMap.erase(gathererToResourceMap.at(u));
+                                resourceToGathererMap.erase(
+                                    gathererToResourceMap.at(u));
                             }
     
                             gathererToResourceMap.erase(u);
@@ -1462,20 +1893,28 @@ void ZZZKBotAIModule::onFrame()
                 }
 
                 // Don't issue a return cargo or gather command if we are a drone planning to build a building.
-                if (u != extractorBuilder && u != groundArmyBuildingBuilder && u->getLastCommand().getType() != BWAPI::UnitCommandTypes::Build)
+                if (u != extractorBuilder && u != groundArmyBuildingBuilder &&
+                    u->getLastCommand().getType() != BWAPI::UnitCommandTypes::Build)
                 {
                     // If idle or were targeting an enemy unit or are no longer carrying minerals...
-                    const bool isNewCmdNeeded = u->isIdle() || (u->getTarget() && u->getTarget()->getPlayer() && u->getTarget()->getPlayer()->isEnemy(Broodwar->self()));
+                    const bool isNewCmdNeeded = u->isIdle() ||(u->getTarget() &&
+                            u->getTarget()->getPlayer() &&
+                            u->getTarget()->getPlayer()->isEnemy(Broodwar->self()));
                     if (isNewCmdNeeded ||
-                        (!u->isCarryingMinerals() && (int) u->getClientInfo(wasJustCarryingMineralsInd) == wasJustCarryingMineralsTrueVal))
+                        (!u->isCarryingMinerals() &&
+                        (int) u->getClientInfo(wasJustCarryingMineralsInd) ==
+                             wasJustCarryingMineralsTrueVal))
                     {
-                        if (!u->isCarryingMinerals() && (int) u->getClientInfo(wasJustCarryingMineralsInd) == wasJustCarryingMineralsTrueVal)
+                        if (!u->isCarryingMinerals() &&
+                            (int) u->getClientInfo(wasJustCarryingMineralsInd) ==
+                                wasJustCarryingMineralsTrueVal)
                         {
                             // Reset indicator about carrying minerals because we aren't carrying minerals now.
                             // Note: setClientInfo may also be called at the end of this and some other frames
                             // (but not necessarily at the end of all frames because there's logic at the start
                             // of each frame to return if the frame count modulo is a certain value).
-                            u->setClientInfo(wasJustCarryingMineralsDefaultVal, wasJustCarryingMineralsInd);
+                            u->setClientInfo(wasJustCarryingMineralsDefaultVal,
+                                             wasJustCarryingMineralsInd);
                         }
     
                         // Order workers carrying a resource to return them to the center,
@@ -1485,7 +1924,8 @@ void ZZZKBotAIModule::onFrame()
                         {
                             if (u->canReturnCargo())
                             {
-                                if (u->getLastCommand().getType() != BWAPI::UnitCommandTypes::Return_Cargo)
+                                if (u->getLastCommand().getType() !=
+                                        BWAPI::UnitCommandTypes::Return_Cargo)
                                 {
                                     u->returnCargo();
                                 }
@@ -1515,15 +1955,31 @@ void ZZZKBotAIModule::onFrame()
             // because BWAPI seems to think it is completed.
             if ((allUnitCount[BWAPI::UnitTypes::Zerg_Spawning_Pool] == 0 &&
                  // If we have lost drones to enemy worker rush then keep adding a few extra drones until they start to pop.
-                 ((Broodwar->self()->deadUnitCount(BWAPI::UnitTypes::Zerg_Drone) > 0 &&
-                   allUnitCount[BWAPI::UnitTypes::Zerg_Drone] + numWorkersTrainedThisFrame + allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] < 6 &&
-                   myCompletedWorkers.size() + allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] < 4) ||
-                  allUnitCount[BWAPI::UnitTypes::Zerg_Drone] + numWorkersTrainedThisFrame + allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] < 4)) ||
-                (Broodwar->self()->completedUnitCount(BWAPI::UnitTypes::Zerg_Spawning_Pool) > 0 &&
-                 allUnitCount[BWAPI::UnitTypes::Zerg_Drone] + numWorkersTrainedThisFrame + allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] < 3) ||
-                ((Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh || supplyUsed >= 60) &&
+                 ((Broodwar->self()->deadUnitCount(
+                       BWAPI::UnitTypes::Zerg_Drone) > 0 &&
+                   allUnitCount[BWAPI::UnitTypes::Zerg_Drone] +
+                       numWorkersTrainedThisFrame +
+                       allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] < 6 &&
+                   myCompletedWorkers.size() +
+                       allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] < 4) ||
+                  allUnitCount[BWAPI::UnitTypes::Zerg_Drone] +
+                      numWorkersTrainedThisFrame +
+                      allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] < 4)) ||
+                (Broodwar->self()->completedUnitCount(
+                      BWAPI::UnitTypes::Zerg_Spawning_Pool) > 0 &&
+                allUnitCount[BWAPI::UnitTypes::Zerg_Drone] +
+                    numWorkersTrainedThisFrame +
+                    allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] < 3) ||
+                ((Broodwar->getFrameCount() >=
+                      transitionOutOfFourPoolFrameCountThresh ||
+                  supplyUsed >= 60) &&
                  // TODO: this might not count the worker currently inside the extractor.
-                 allUnitCount[BWAPI::UnitTypes::Zerg_Drone] + numWorkersTrainedThisFrame < ((isSpeedlingBuildOrder && allUnitCount[BWAPI::UnitTypes::Zerg_Lair] + allUnitCount[BWAPI::UnitTypes::Zerg_Hive] == 0) ? 9 : 28)))
+                 allUnitCount[BWAPI::UnitTypes::Zerg_Drone] +
+                    numWorkersTrainedThisFrame < (
+                        (isSpeedlingBuildOrder &&
+                         allUnitCount[BWAPI::UnitTypes::Zerg_Lair] +
+                             allUnitCount[BWAPI::UnitTypes::Zerg_Hive] == 0) ?
+                                 9 : 28)))
             {
                 if (u->getType() == UnitTypes::Zerg_Larva ||
                     (u->getTrainingQueue().size() < 2 &&
@@ -1542,13 +1998,21 @@ void ZZZKBotAIModule::onFrame()
         {
             // Morph to lair late-game.
             static bool issuedMorphLairCmd = false;
+            // # able to morph to lair, no lairs or hives,
+            // # speedlingBuild or realetive 5 minutes and speed
+            // # finished or upgrading.
             if (u->canMorph(BWAPI::UnitTypes::Zerg_Lair) &&
-                allUnitCount[BWAPI::UnitTypes::Zerg_Lair] + allUnitCount[BWAPI::UnitTypes::Zerg_Hive] == 0 &&
+                allUnitCount[BWAPI::UnitTypes::Zerg_Lair] +
+                    allUnitCount[BWAPI::UnitTypes::Zerg_Hive] == 0 &&
                 (!isSpeedlingBuildOrder ?
-                 true :
-                 (Broodwar->getFrameCount() > (5 * 60 * 24) &&
-                  (Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Metabolic_Boost) == Broodwar->self()->getMaxUpgradeLevel(BWAPI::UpgradeTypes::Metabolic_Boost) ||
-                   Broodwar->self()->isUpgrading(BWAPI::UpgradeTypes::Metabolic_Boost)))))
+                    true :
+                    (Broodwar->getFrameCount() > (5 * 60 * 24) &&
+                     (Broodwar->self()->getUpgradeLevel(
+                          BWAPI::UpgradeTypes::Metabolic_Boost) ==
+                              Broodwar->self()->getMaxUpgradeLevel(
+                                  BWAPI::UpgradeTypes::Metabolic_Boost) ||
+                      Broodwar->self()->isUpgrading(
+                          BWAPI::UpgradeTypes::Metabolic_Boost)))))
             {
                 u->morph(BWAPI::UnitTypes::Zerg_Lair);
                 issuedMorphLairCmd = true;
@@ -1559,7 +2023,9 @@ void ZZZKBotAIModule::onFrame()
         {
             // Morph to hive late-game.
             static bool issuedMorphHiveCmd = false;
-            if (u->canMorph(BWAPI::UnitTypes::Zerg_Hive) && allUnitCount[BWAPI::UnitTypes::Zerg_Hive] == 0)
+            // # able to morph to Hive, no hives.
+            if (u->canMorph(BWAPI::UnitTypes::Zerg_Hive) &&
+                allUnitCount[BWAPI::UnitTypes::Zerg_Hive] == 0)
             {
                 u->morph(BWAPI::UnitTypes::Zerg_Hive);
                 issuedMorphHiveCmd = true;
@@ -1570,7 +2036,9 @@ void ZZZKBotAIModule::onFrame()
         {
             // Morph to greater spire late-game.
             static bool issuedMorphGreaterSpireCmd = false;
-            if (u->canMorph(BWAPI::UnitTypes::Zerg_Greater_Spire) && allUnitCount[BWAPI::UnitTypes::Zerg_Greater_Spire] == 0)
+            // # if abile to morph spire and no spires.
+            if (u->canMorph(BWAPI::UnitTypes::Zerg_Greater_Spire) &&
+                allUnitCount[BWAPI::UnitTypes::Zerg_Greater_Spire] == 0)
             {
                 u->morph(BWAPI::UnitTypes::Zerg_Greater_Spire);
                 issuedMorphGreaterSpireCmd = true;
@@ -1582,7 +2050,10 @@ void ZZZKBotAIModule::onFrame()
             // Morph a limited number of guardians late-game.
             // Not until at least one mutalisk has died though (because mutalisks may be all we need,
             // e.g. against lifted buildings or an enemy that doesn't get any anti-air).
-            if (u->canMorph(BWAPI::UnitTypes::Zerg_Guardian) && allUnitCount[UnitTypes::Zerg_Guardian] <= 8 &&
+            // # if abile to morph Guardian, no more than 8, atleast a
+            // # mutalisk died.
+            if (u->canMorph(BWAPI::UnitTypes::Zerg_Guardian) &&
+                    allUnitCount[UnitTypes::Zerg_Guardian] <= 8 &&
                 Broodwar->self()->deadUnitCount(UnitTypes::Zerg_Mutalisk) > 0)
             {
                 u->morph(BWAPI::UnitTypes::Zerg_Guardian);
@@ -1590,19 +2061,23 @@ void ZZZKBotAIModule::onFrame()
             }
         }
 
-        const BWAPI::UnitType airForceUnitType = BWAPI::UnitTypes::Zerg_Mutalisk;
+        const BWAPI::UnitType airForceUnitType =
+                BWAPI::UnitTypes::Zerg_Mutalisk;
 
         if (u->getType() == airForceUnitType.whatBuilds().first)
         {
             // Don't make mutalisks until we have a greater spire (or a greater spire morphing),
             // to ensure we have enough gas to tech up to & morph greater spire (rather than
             // constantly kamikaze'ing mutalisks).
+            // # SpeedlingBuild or existing GreaterSpire and less than
+            // # 40 airUnits.
             if ((isSpeedlingBuildOrder ||
                  allUnitCount[BWAPI::UnitTypes::Zerg_Greater_Spire] > 0) &&
                 allUnitCount[airForceUnitType] <= (isSpeedlingBuildOrder ? 40 : 12))
             {
                 // Train more air combat units.
-                if (u->getType() == UnitTypes::Zerg_Larva || (u->getTrainingQueue().size() < 2 && noCmdPending(u)))
+                if (u->getType() == UnitTypes::Zerg_Larva ||
+                    (u->getTrainingQueue().size() < 2 && noCmdPending(u)))
                 {
                     if (u->canTrain(airForceUnitType))
                     {
@@ -1616,8 +2091,12 @@ void ZZZKBotAIModule::onFrame()
         if (u->getType() == groundArmyUnitType.whatBuilds().first)
         {
             // Train more ground combat units.
-            if ((Broodwar->getFrameCount() < transitionOutOfFourPoolFrameCountThresh ||
-                 ((completedUnitCount[UnitTypes::Zerg_Ultralisk_Cavern] == 0 || allUnitCount[UnitTypes::Zerg_Ultralisk] >= 2) &&
+            // # if not transitioning from four pool or no UltraCavern
+            // # or atleast 2 Ultra and no greater than 30 groundArmy.
+            if ((Broodwar->getFrameCount() <
+                        transitionOutOfFourPoolFrameCountThresh ||
+                 ((completedUnitCount[UnitTypes::Zerg_Ultralisk_Cavern] == 0 ||
+                   allUnitCount[UnitTypes::Zerg_Ultralisk] >= 2) &&
                   allUnitCount[groundArmyUnitType] <= 30)) &&
                 (u->getType() == UnitTypes::Zerg_Larva ||
                  (u->getTrainingQueue().size() < 2 &&
@@ -1634,6 +2113,7 @@ void ZZZKBotAIModule::onFrame()
         if (u->getType() == BWAPI::UnitTypes::Zerg_Hydralisk.whatBuilds().first)
         {
             // Train more hydralisk units.
+            // # if atleast 8 Guardians and no more than 20 hydra.
             if (allUnitCount[UnitTypes::Zerg_Guardian] >= 8 &&
                 allUnitCount[BWAPI::UnitTypes::Zerg_Hydralisk] <= 20)
             {
@@ -1648,6 +2128,7 @@ void ZZZKBotAIModule::onFrame()
         if (u->getType() == BWAPI::UnitTypes::Zerg_Ultralisk.whatBuilds().first)
         {
             // Train more ultralisk units.
+            // # if atleast 8 gardians and no more than 6 Ultras.
             if (allUnitCount[UnitTypes::Zerg_Guardian] >= 8 &&
                 allUnitCount[BWAPI::UnitTypes::Zerg_Ultralisk] <= 6)
             {
@@ -1662,7 +2143,8 @@ void ZZZKBotAIModule::onFrame()
         // A resource depot is a Command Center, Nexus, or Hatchery/Lair/Hive.
         if (u->getType().isResourceDepot())
         {
-            const UnitType supplyProviderType = u->getType().getRace().getSupplyProvider();
+            const UnitType supplyProviderType =
+                u->getType().getRace().getSupplyProvider();
             // Commented out because for 4pool we probably shouldn't ever make overlords
             // cos we want all available larvae available to replenish ling count if ling(s) die.
             // We could use the amount of larvae available as a threshold but there is a risk many
@@ -1670,28 +2152,56 @@ void ZZZKBotAIModule::onFrame()
             //if (incompleteUnitCount[supplyProviderType] == 0 &&
             //    ((Broodwar->getFrameCount() < transitionOutOfFourPoolFrameCountThresh && supplyUsed >= Broodwar->self()->supplyTotal()) ||
             //     (Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh && Broodwar->self()->supplyTotal() < 400)))
-            if ((Broodwar->getFrameCount() < transitionOutOfFourPoolFrameCountThresh &&
-                 Broodwar->self()->supplyTotal() + (incompleteUnitCount[supplyProviderType] * supplyProviderType.supplyProvided()) < 18) ||
-                (Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh &&
-                 Broodwar->self()->supplyTotal() + (incompleteUnitCount[supplyProviderType] * supplyProviderType.supplyProvided()) < 400 &&
-                 supplyUsed + 16 > Broodwar->self()->supplyTotal() + (incompleteUnitCount[supplyProviderType] * supplyProviderType.supplyProvided()) &&
-                 (supplyUsed > 18 || supplyUsed + 2 > Broodwar->self()->supplyTotal() + (incompleteUnitCount[supplyProviderType] * supplyProviderType.supplyProvided()))))
+            // # if not transitioning out of four pool, predicted
+            // # supplyTotal is less than 18 or potential supplyUsed is
+            // # greater than predicted supplyTotal, supplyUsed greater
+            // # than or potential supplyUsed is greater than predicted
+            // # supplyTotal.
+            if ((Broodwar->getFrameCount() <
+                    transitionOutOfFourPoolFrameCountThresh &&
+                 Broodwar->self()->supplyTotal() +
+                    (incompleteUnitCount[supplyProviderType] *
+                     supplyProviderType.supplyProvided()) < 18) ||
+                (Broodwar->getFrameCount() >=
+                    transitionOutOfFourPoolFrameCountThresh &&
+                 // ? supplyTotal max is 400.
+                 Broodwar->self()->supplyTotal() +
+                    (incompleteUnitCount[supplyProviderType] *
+                     supplyProviderType.supplyProvided()) < 400 &&
+                 supplyUsed + 16 >
+                    Broodwar->self()->supplyTotal() +
+                        (incompleteUnitCount[supplyProviderType] *
+                         supplyProviderType.supplyProvided()) &&
+                 (supplyUsed > 18 ||
+                  supplyUsed + 2 >
+                      Broodwar->self()->supplyTotal() +
+                        (incompleteUnitCount[supplyProviderType] *
+                         supplyProviderType.supplyProvided()))))
             {
                 static int lastIssuedBuildSupplyProviderCmd = 0;
-                if (Broodwar->getFrameCount() >= lastIssuedBuildSupplyProviderCmd + (10 * 24))
+                if (Broodwar->getFrameCount() >=
+                        lastIssuedBuildSupplyProviderCmd + (10 * 24))
                 {
                     // Retrieve a unit that is capable of constructing the supply needed
-                    Unit supplyBuilder = u->getClosestUnit(GetType == supplyProviderType.whatBuilds().first && (IsIdle || IsGatheringMinerals) && IsOwned);
+                    Unit supplyBuilder = u->getClosestUnit(
+                            GetType == supplyProviderType.whatBuilds().first
+                            && (IsIdle || IsGatheringMinerals) && IsOwned);
                     // If a unit was found
                     if (supplyBuilder)
                     {
                         if (supplyProviderType.isBuilding())
                         {
-                            const TilePosition targetBuildLocation = Broodwar->getBuildLocation(supplyProviderType, supplyBuilder->getTilePosition());
-                            if (targetBuildLocation && supplyBuilder->canBuild(supplyProviderType, targetBuildLocation))
+                            const TilePosition targetBuildLocation =
+                                Broodwar->getBuildLocation(
+                                    supplyProviderType,
+                                    supplyBuilder->getTilePosition());
+                            if (targetBuildLocation &&
+                                supplyBuilder->canBuild(supplyProviderType,
+                                                        targetBuildLocation))
                             {
                                 // Order the builder to construct the supply structure
-                                supplyBuilder->build(supplyProviderType, targetBuildLocation);
+                                supplyBuilder->build(supplyProviderType,
+                                                     targetBuildLocation);
                                 lastIssuedBuildSupplyProviderCmd = Broodwar->getFrameCount();
                                 continue;
                             }
@@ -1709,14 +2219,20 @@ void ZZZKBotAIModule::onFrame()
         }
         // Attempt to detect and fix bugged (frozen) ground units caused by bug in Broodwar.
         // TODO: improve this to speed up detection/fix.
-        else if (u->canStop() &&
-                 u->canAttack() &&
-                 u->canMove() &&
-                 !u->isFlying() &&
-                 !u->isAttacking() &&
-                 (int) u->getClientInfo(frameLastStoppedInd) + (3 * 24) < Broodwar->getFrameCount() &&
-                 (int) u->getClientInfo(frameLastAttackingInd) + std::max(Broodwar->self()->weaponDamageCooldown(u->getType()), u->getType().airWeapon().damageCooldown()) + (3 * 24) < Broodwar->getFrameCount() &&
-                 (int) u->getClientInfo(frameLastChangedPosInd) > 0 && (int) u->getClientInfo(frameLastChangedPosInd) + (3 * 24) < Broodwar->getFrameCount() &&
+        // # if able to attack, last checked stopped, attack, and
+        // # moved more than 3 seconds ago and no other commands.
+        else if (u->canStop() && u->canAttack() && u->canMove() &&
+                 !u->isFlying() && !u->isAttacking() &&
+                 (int) u->getClientInfo(frameLastStoppedInd) + (3 * 24) <
+                        Broodwar->getFrameCount() &&
+                 (int) u->getClientInfo(frameLastAttackingInd) +
+                        std::max(
+                            Broodwar->self()->weaponDamageCooldown(u->getType()),
+                            u->getType().airWeapon().damageCooldown()) +
+                        (3 * 24) < Broodwar->getFrameCount() &&
+                 (int) u->getClientInfo(frameLastChangedPosInd) > 0 &&
+                 (int) u->getClientInfo(frameLastChangedPosInd) + (3 * 24) <
+                        Broodwar->getFrameCount() &&
                  noCmdPending(u))
         {
             u->stop();
@@ -1740,6 +2256,7 @@ void ZZZKBotAIModule::onFrame()
                     // will always return false because tmpUnit is not commandable by Broodwar->self() and BWAPI doesn't seem to update
                     // unit visibility info correctly for other players than Broodwar->self().
                     // I check !IsLockedDown etc becuase rather than attacking them we would rather fall through and attack workers if possible.
+                    // # Duplicate check within getBestEnemyThreat.
                     !IsLockedDown && !IsMaelstrommed && !IsStasised &&
                     (CanAttack ||
                      GetType == BWAPI::UnitTypes::Terran_Bunker ||
@@ -1761,29 +2278,46 @@ void ZZZKBotAIModule::onFrame()
                     [&u](Unit& tmpUnit)
                     {
                         return
+                            // # Able to attack unit, in range, not
+                            // # Bunker or zergling, can not return
+                            // # fire.
                             u->canAttack(PositionOrUnit(tmpUnit)) &&
                             u->isInWeaponRange(tmpUnit) &&
                             // TODO: add special logic for zerglings.
                             (tmpUnit->getType() != BWAPI::UnitTypes::Terran_Bunker ||
                              u->getType() != BWAPI::UnitTypes::Zerg_Zergling) &&
                             (!tmpUnit->getType().canAttack() ||
-                             (!u->isFlying() ? tmpUnit->getType().groundWeapon() : tmpUnit->getType().airWeapon()) != BWAPI::WeaponTypes::None);
+                             (!u->isFlying() ?
+                                 tmpUnit->getType().groundWeapon() :
+                                 tmpUnit->getType().airWeapon()) !=
+                                     BWAPI::WeaponTypes::None);
                     },
                     u->getPosition(),
-                    std::max(u->getType().dimensionLeft(), std::max(u->getType().dimensionUp(), std::max(u->getType().dimensionRight(), u->getType().dimensionDown()))) + std::max(Broodwar->self()->weaponMaxRange(u->getType().groundWeapon()), Broodwar->self()->weaponMaxRange(u->getType().airWeapon())));
+                    std::max(u->getType().dimensionLeft(), std::max(
+                        u->getType().dimensionUp(), std::max(
+                            u->getType().dimensionRight(),
+                            u->getType().dimensionDown()))) +
+                        std::max(Broodwar->self()->weaponMaxRange(u->getType().groundWeapon()),
+                                 Broodwar->self()->weaponMaxRange(u->getType().airWeapon())));
 
             if (bestAttackableInRangeEnemySelfThreatUnit)
             {
                 const BWAPI::Unit oldOrderTarget = u->getTarget();
-                if (u->isIdle() || oldOrderTarget == nullptr || oldOrderTarget != bestAttackableInRangeEnemySelfThreatUnit)
+                // # if idle, not target anything or different from
+                // # new target.
+                if (u->isIdle() || oldOrderTarget == nullptr ||
+                    oldOrderTarget != bestAttackableInRangeEnemySelfThreatUnit)
                 {
                     u->attack(bestAttackableInRangeEnemySelfThreatUnit);
                 }
                 continue;
             }
 
+            // # Almost a duplicate to BestInRange
             // I.E. a nearby enemy unit that is a threat to this particular unit
             // (so for example, an enemy zergling is not a threat to my mutalisk).
+            // # Near bestAttackableInRangeEnemySelfThreatUnit duplicate
+            // # -isInWeaponRange and different lambda.
             const BWAPI::Unit bestAttackableEnemySelfThreatUnit =
                 // Could also take into account higher ground advantage, cover advantage (e.g. in trees), HP regen, shields regen,
                 // effects of spells like dark swarm. The list is endless.
@@ -1816,35 +2350,66 @@ void ZZZKBotAIModule::onFrame()
                     [&u](Unit& tmpUnit)
                     {
                         return
+                            // # Can attack unit, not bunker or
+                            // # zergling, enemy weapon range no more
+                            // # than Marine or self weapon range at
+                            // # least Marine, can not return fire.
                             u->canAttack(PositionOrUnit(tmpUnit)) &&
                             // TODO: add special logic for zerglings.
                             (tmpUnit->getType() != BWAPI::UnitTypes::Terran_Bunker ||
                              (u->getType() != BWAPI::UnitTypes::Zerg_Zergling &&
                               // Ignore ghosts long range for now - assume there are marine(s) in the bunker.
                               // Only attack if we are in the bunker's range or we can out-range the bunker.
-                              (tmpUnit->getDistance(u) <= tmpUnit->getPlayer()->weaponMaxRange(BWAPI::UnitTypes::Terran_Marine.groundWeapon()) ||
-                               u->getPlayer()->weaponMaxRange(u->getType().groundWeapon()) > tmpUnit->getPlayer()->weaponMaxRange(BWAPI::UnitTypes::Terran_Marine.groundWeapon())))) &&
+                              (tmpUnit->getDistance(u) <= tmpUnit->getPlayer()->weaponMaxRange(
+                                   BWAPI::UnitTypes::Terran_Marine.groundWeapon()) ||
+                               u->getPlayer()->weaponMaxRange( u->getType().groundWeapon()) >
+                                    tmpUnit->getPlayer()->weaponMaxRange(
+                                        BWAPI::UnitTypes::Terran_Marine.groundWeapon())))) &&
                             ((!tmpUnit->getType().canAttack() ||
-                              (!u->isFlying() ? tmpUnit->getType().groundWeapon() : tmpUnit->getType().airWeapon()) != BWAPI::WeaponTypes::None) &&
-                             tmpUnit->getDistance(u) <= (int) (std::max(std::max(tmpUnit->getPlayer()->weaponMaxRange(!u->isFlying() ? tmpUnit->getType().groundWeapon() : tmpUnit->getType().airWeapon()),
-                                                                                 u->getPlayer()->weaponMaxRange(!tmpUnit->isFlying() ? u->getType().groundWeapon() : u->getType().airWeapon())),
-                                                                        112)
-                                                               + 32) &&
+                              (!u->isFlying() ?
+                                   tmpUnit->getType().groundWeapon() :
+                                   tmpUnit->getType().airWeapon()) !=
+                              BWAPI::WeaponTypes::None) &&
+                             tmpUnit->getDistance(u) <= (int) (std::max(
+                                 std::max(tmpUnit->getPlayer()->weaponMaxRange(
+                                     !u->isFlying() ?
+                                         tmpUnit->getType().groundWeapon() :
+                                         tmpUnit->getType().airWeapon()),
+                                     u->getPlayer()->weaponMaxRange(
+                                         !tmpUnit->isFlying() ?
+                                            u->getType().groundWeapon() :
+                                            u->getType().airWeapon())),
+                                     112) +
+                                 32) &&
                              tmpUnit->getClosestUnit(
                                  Exists && GetPlayer == Broodwar->self(),
-                                 (int) (std::max(std::max((!u->isFlying() ? tmpUnit->getPlayer()->weaponMaxRange(tmpUnit->getType().groundWeapon()) : tmpUnit->getPlayer()->weaponMaxRange(tmpUnit->getType().airWeapon())),
-                                                          (!tmpUnit->isFlying() ? u->getPlayer()->weaponMaxRange(u->getType().groundWeapon()) : u->getPlayer()->weaponMaxRange(u->getType().airWeapon()))),
-                                                 112))) != nullptr);
+                                 (int) (std::max(std::max(
+                                     (!u->isFlying() ?
+                                         tmpUnit->getPlayer()->weaponMaxRange(
+                                             tmpUnit->getType().groundWeapon()) :
+                                         tmpUnit->getPlayer()->weaponMaxRange(
+                                             tmpUnit->getType().airWeapon())),
+                                     (!tmpUnit->isFlying() ?
+                                          u->getPlayer()->weaponMaxRange(
+                                              u->getType().groundWeapon()) :
+                                          u->getPlayer()->weaponMaxRange(
+                                              u->getType().airWeapon()))),
+                                     112))
+                             ) != nullptr);
                     },
                     u->getPosition(),
                     // Note: 384 is the max range of any weapon (i.e. siege tank's weapon).
                     // FYI, the max sight range of any unit is 352, and the max seek range of any unit is 288.
-                    std::max(u->getType().dimensionLeft(), std::max(u->getType().dimensionUp(), std::max(u->getType().dimensionRight(), u->getType().dimensionDown()))) + 384 + 112 + 32);
+                    std::max(u->getType().dimensionLeft(), std::max(
+                        u->getType().dimensionUp(), std::max(
+                            u->getType().dimensionRight(),
+                            u->getType().dimensionDown()))) + 384 + 112 + 32);
 
             if (bestAttackableEnemySelfThreatUnit)
             {
                 const BWAPI::Unit oldOrderTarget = u->getTarget();
-                if (u->isIdle() || oldOrderTarget == nullptr || oldOrderTarget != bestAttackableEnemySelfThreatUnit)
+                if (u->isIdle() || oldOrderTarget == nullptr ||
+                    oldOrderTarget != bestAttackableEnemySelfThreatUnit)
                 {
                     u->attack(bestAttackableEnemySelfThreatUnit);
                 }
@@ -1856,14 +2421,24 @@ void ZZZKBotAIModule::onFrame()
                 Broodwar->getBestUnit(
                     getBestEnemyThreatUnitLambda,
                     IsEnemy && IsVisible && IsDetected && Exists && IsWorker &&
-                    [&u](Unit& tmpUnit) { return u->canAttack(PositionOrUnit(tmpUnit)) && u->isInWeaponRange(tmpUnit); },
+                    [&u](Unit& tmpUnit)
+                    { return u->canAttack(PositionOrUnit(tmpUnit)) &&
+                        u->isInWeaponRange(tmpUnit); },
                     u->getPosition(),
-                    std::max(u->getType().dimensionLeft(), std::max(u->getType().dimensionUp(), std::max(u->getType().dimensionRight(), u->getType().dimensionDown()))) + std::max(Broodwar->self()->weaponMaxRange(u->getType().groundWeapon()), Broodwar->self()->weaponMaxRange(u->getType().airWeapon())));
+                    std::max(u->getType().dimensionLeft(), std::max(
+                        u->getType().dimensionUp(), std::max(
+                            u->getType().dimensionRight(),
+                            u->getType().dimensionDown()))) +
+                        std::max(Broodwar->self()->weaponMaxRange(
+                                u->getType().groundWeapon()),
+                        Broodwar->self()->weaponMaxRange(
+                                u->getType().airWeapon())));
 
             if (bestAttackableInRangeEnemyWorkerUnit)
             {
                 const BWAPI::Unit oldOrderTarget = u->getTarget();
-                if (u->isIdle() || oldOrderTarget == nullptr || oldOrderTarget != bestAttackableInRangeEnemyWorkerUnit)
+                if (u->isIdle() || oldOrderTarget == nullptr ||
+                    oldOrderTarget != bestAttackableInRangeEnemyWorkerUnit)
                 {
                     u->attack(bestAttackableInRangeEnemyWorkerUnit);
                 }
@@ -1872,6 +2447,8 @@ void ZZZKBotAIModule::onFrame()
 
             // Continue statement to avoid sending out mutalisks if we are making guardians and
             // don't have enough guardians yet, because we don't want to kamikaze the mutalisks.
+            // # Mutalisk, Gardians no more than 8, no Mutas died and
+            // # muta to center is less than 256.
             if (u->getType() == BWAPI::UnitTypes::Zerg_Mutalisk &&
                 allUnitCount[UnitTypes::Zerg_Guardian] <= 8 &&
                 Broodwar->self()->deadUnitCount(UnitTypes::Zerg_Mutalisk) > 0 &&
@@ -1883,16 +2460,24 @@ void ZZZKBotAIModule::onFrame()
 
             // Defend base if necessary, e.g. against worker rush, but base race rather than defend
             // if we have no workers left.
-            if (allUnitCount[BWAPI::UnitTypes::Zerg_Drone] + numWorkersTrainedThisFrame + allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] > 0 &&
-                Broodwar->getFrameCount() < transitionOutOfFourPoolFrameCountThresh &&
+            // # if drone variatons exist, not transition out of four
+            // # pool.
+            if (allUnitCount[BWAPI::UnitTypes::Zerg_Drone] +
+                    numWorkersTrainedThisFrame +
+                    allUnitCount[BWAPI::UnitTypes::Zerg_Extractor] > 0 &&
+                Broodwar->getFrameCount() <
+                    transitionOutOfFourPoolFrameCountThresh &&
                 supplyUsed < 60)
             {
                 BWAPI::Unit defenceAttackTargetUnit = nullptr;
-                if (shouldDefend && workerAttackTargetUnit && u->canAttack(PositionOrUnit(workerAttackTargetUnit)))
+                if (shouldDefend && workerAttackTargetUnit &&
+                    u->canAttack(PositionOrUnit(workerAttackTargetUnit)))
                 {
                     defenceAttackTargetUnit = workerAttackTargetUnit;
                 }
-                else if (Broodwar->self()->deadUnitCount(BWAPI::UnitTypes::Zerg_Drone) > 0 &&
+                // # if at least one drone died and startBase is set.
+                else if (Broodwar->self()->deadUnitCount(
+                            BWAPI::UnitTypes::Zerg_Drone) > 0 &&
                          startBase != nullptr)
                 {
                     // Defend my base (even if have to return all the way to my base) if my workers or a building
@@ -1911,10 +2496,12 @@ void ZZZKBotAIModule::onFrame()
                             896);
                 }
     
-                if (defenceAttackTargetUnit && u->canAttack(PositionOrUnit(defenceAttackTargetUnit)))
+                if (defenceAttackTargetUnit &&
+                    u->canAttack(PositionOrUnit(defenceAttackTargetUnit)))
                 {
                     const BWAPI::Unit oldOrderTarget = u->getTarget();
-                    if (u->isIdle() || oldOrderTarget == nullptr || oldOrderTarget != defenceAttackTargetUnit)
+                    if (u->isIdle() || oldOrderTarget == nullptr ||
+                        oldOrderTarget != defenceAttackTargetUnit)
                     {
                         u->attack(defenceAttackTargetUnit);
                     }
@@ -1928,12 +2515,14 @@ void ZZZKBotAIModule::onFrame()
                 const BWAPI::Unit closestAttackableEnemyLiftedBuildingUnit =
                     u->getClosestUnit(
                         IsEnemy && IsVisible && Exists && IsLifted &&
-                        [&u](Unit& tmpUnit) { return u->canAttack(PositionOrUnit(tmpUnit)); } );
+                        [&u](Unit& tmpUnit)
+                        { return u->canAttack(PositionOrUnit(tmpUnit)); } );
 
                 if (closestAttackableEnemyLiftedBuildingUnit)
                 {
                     const BWAPI::Unit oldOrderTarget = u->getTarget();
-                    if (u->isIdle() || oldOrderTarget == nullptr || oldOrderTarget != closestAttackableEnemyLiftedBuildingUnit)
+                    if (u->isIdle() || oldOrderTarget == nullptr ||
+                        oldOrderTarget != closestAttackableEnemyLiftedBuildingUnit)
                     {
                         u->attack(closestAttackableEnemyLiftedBuildingUnit);
                     }
@@ -1948,39 +2537,64 @@ void ZZZKBotAIModule::onFrame()
                     isNotStolenGas);
 
             const BWAPI::Position closestEnemyUnliftedBuildingAnywherePos =
-                closestEnemyUnliftedBuildingAnywhere ? closestEnemyUnliftedBuildingAnywhere->getPosition() : BWAPI::Positions::Unknown;
+                closestEnemyUnliftedBuildingAnywhere ?
+                    closestEnemyUnliftedBuildingAnywhere->getPosition() :
+                    BWAPI::Positions::Unknown;
 
             if (closestEnemyUnliftedBuildingAnywhere)
             {
                 // Distance multiplier is arbitrary - the value seems to result in ok movement behaviour.
                 if (u->getDistance(closestEnemyUnliftedBuildingAnywhere) <=
-                    (int) (std::max(std::max(Broodwar->self()->weaponMaxRange(u->getType().groundWeapon()),
-                                             Broodwar->self()->weaponMaxRange(u->getType().airWeapon())), 256) * 1))
+                    (int) (std::max(
+                           std::max(
+                                Broodwar->self()->weaponMaxRange(
+                                    u->getType().groundWeapon()),
+                                Broodwar->self()->weaponMaxRange(
+                                    u->getType().airWeapon())),
+                           256) * 1))
                 {
                     const BWAPI::Unit bestAttackableEnemyWorkerUnit =
                         Broodwar->getBestUnit(
                             getBestEnemyThreatUnitLambda,
-                            IsEnemy && IsVisible && IsDetected && Exists && IsWorker &&
-                            [&u, &closestEnemyUnliftedBuildingAnywhere](Unit& tmpUnit)
+                            IsEnemy && IsVisible && IsDetected && Exists &&
+                            IsWorker &&
+                            [&u, &closestEnemyUnliftedBuildingAnywhere]
+                            (Unit& tmpUnit)
                             {
+                                // # canAttack, within range, and nearby
+                                // # owned unit.
                                 return u->canAttack(PositionOrUnit(tmpUnit)) &&
                                     tmpUnit->getDistance(u) <= (int) (224 + 32) &&
-                                    tmpUnit->getDistance(closestEnemyUnliftedBuildingAnywhere) <= Broodwar->self()->weaponMaxRange(u->getType().groundWeapon()) + 224 &&
-                                    tmpUnit->getClosestUnit(Exists && GetPlayer == Broodwar->self(), (int) (224)) != nullptr;
+                                    tmpUnit->getDistance(
+                                            closestEnemyUnliftedBuildingAnywhere) <=
+                                        Broodwar->self()->weaponMaxRange(
+                                            u->getType().groundWeapon()) +
+                                        224 &&
+                                    tmpUnit->getClosestUnit(
+                                        Exists && GetPlayer == Broodwar->self(),
+                                        (int) (224)) != nullptr;
                             },
                             u->getPosition(),
-                            std::max(u->getType().dimensionLeft(), std::max(u->getType().dimensionUp(), std::max(u->getType().dimensionRight(), u->getType().dimensionDown()))) + 224 + 32);
+                            std::max(u->getType().dimensionLeft(),
+                                std::max(u->getType().dimensionUp(),
+                                    std::max(u->getType().dimensionRight(),
+                                    u->getType().dimensionDown()))) + 224 + 32);
 
                     if (bestAttackableEnemyWorkerUnit)
                     {
                         const BWAPI::Unit oldOrderTarget = u->getTarget();
-                        if (u->isIdle() || oldOrderTarget == nullptr || oldOrderTarget != bestAttackableEnemyWorkerUnit)
+                        // # if Idle, without current target and
+                        // # dispropotionate.
+                        if (u->isIdle() || oldOrderTarget == nullptr ||
+                            oldOrderTarget != bestAttackableEnemyWorkerUnit)
                         {
                             u->attack(bestAttackableEnemyWorkerUnit);
                         }
                         continue;
                     }
 
+                    // # The getBestEnemyThreatUnit from visible
+                    // # non-worker able to or assist in dealing damage.
                     const BWAPI::Unit bestAttackableInRangeEnemyTacticalUnit =
                         Broodwar->getBestUnit(
                             getBestEnemyThreatUnitLambda,
@@ -2003,14 +2617,24 @@ void ZZZKBotAIModule::onFrame()
                              // TODO: re-enable Terran_Comsat_Station after add any
                              // logic to produce cloaked units.
                              GetType == BWAPI::UnitTypes::Terran_Comsat_Station*/) &&
-                            [&u](Unit& tmpUnit) { return u->canAttack(PositionOrUnit(tmpUnit)) && u->isInWeaponRange(tmpUnit); },
+                            [&u](Unit& tmpUnit)
+                            { return u->canAttack(PositionOrUnit(tmpUnit)) &&
+                                     u->isInWeaponRange(tmpUnit); },
                             u->getPosition(),
-                            std::max(u->getType().dimensionLeft(), std::max(u->getType().dimensionUp(), std::max(u->getType().dimensionRight(), u->getType().dimensionDown()))) + std::max(Broodwar->self()->weaponMaxRange(u->getType().groundWeapon()), Broodwar->self()->weaponMaxRange(u->getType().airWeapon())));
+                            std::max(u->getType().dimensionLeft(),
+                                std::max(u->getType().dimensionUp(),
+                                    std::max(u->getType().dimensionRight(),
+                                             u->getType().dimensionDown()))) +
+                                std::max(Broodwar->self()->weaponMaxRange(
+                                             u->getType().groundWeapon()),
+                                         Broodwar->self()->weaponMaxRange(
+                                            u->getType().airWeapon())));
 
                     if (bestAttackableInRangeEnemyTacticalUnit)
                     {
                         const BWAPI::Unit oldOrderTarget = u->getTarget();
-                        if (u->isIdle() || oldOrderTarget == nullptr || oldOrderTarget != bestAttackableInRangeEnemyTacticalUnit)
+                        if (u->isIdle() || oldOrderTarget == nullptr ||
+                            oldOrderTarget != bestAttackableInRangeEnemyTacticalUnit)
                         {
                             u->attack(bestAttackableInRangeEnemyTacticalUnit);
                         }
@@ -2020,6 +2644,9 @@ void ZZZKBotAIModule::onFrame()
                     // Distance multiplier is arbitrary - the value seems to result in ok movement behaviour.
                     // Less than for closestAttackableEnemyThreatUnit because we would slightly prefer to attack
                     // closer enemy units that can't retaliate than further away ones that can.
+                    // # The getBestEnemyThreatUnit from visible
+                    // # non-worker able to or assist in dealing damage.
+                    // # difference in lambda.
                     const BWAPI::Unit bestAttackableEnemyTacticalUnit =
                         Broodwar->getBestUnit(
                             getBestEnemyThreatUnitLambda,
@@ -2042,25 +2669,36 @@ void ZZZKBotAIModule::onFrame()
                              // TODO: re-enable Terran_Comsat_Station after add any
                              // logic to produce cloaked units.
                              GetType == BWAPI::UnitTypes::Terran_Comsat_Station*/) &&
-                            [&u, &closestEnemyUnliftedBuildingAnywhere](Unit& tmpUnit)
+                            [&u, &closestEnemyUnliftedBuildingAnywhere]
+                            (Unit& tmpUnit)
                             {
                                 return
                                     u->canAttack(PositionOrUnit(tmpUnit)) &&
                                     (tmpUnit == closestEnemyUnliftedBuildingAnywhere ||
                                      tmpUnit->getDistance(closestEnemyUnliftedBuildingAnywhere) <=
-                                         (!tmpUnit->isFlying() ? Broodwar->self()->weaponMaxRange(u->getType().groundWeapon()) : Broodwar->self()->weaponMaxRange(u->getType().airWeapon()))
-                                         + 224);
+                                         (!tmpUnit->isFlying() ?
+                                             Broodwar->self()->weaponMaxRange(
+                                                 u->getType().groundWeapon()) :
+                                             Broodwar->self()->weaponMaxRange(
+                                                 u->getType().airWeapon())) + 224);
                             },
                             u->getPosition(),
-                            std::max(u->getType().dimensionLeft(), std::max(u->getType().dimensionUp(), std::max(u->getType().dimensionRight(), u->getType().dimensionDown()))) + (int) (std::max(std::max(Broodwar->self()->weaponMaxRange(u->getType().groundWeapon()),
-                                                     Broodwar->self()->weaponMaxRange(u->getType().airWeapon())),
-                                            96)
-                                   * 1));
+                            std::max(u->getType().dimensionLeft(), std::max(
+                                u->getType().dimensionUp(), std::max(
+                                    u->getType().dimensionRight(),
+                                    u->getType().dimensionDown()))) +
+                                (int) (std::max(
+                                    std::max(
+                                        Broodwar->self()->weaponMaxRange(
+                                            u->getType().groundWeapon()),
+                                        Broodwar->self()->weaponMaxRange(
+                                            u->getType().airWeapon())), 96) * 1));
 
                     if (bestAttackableEnemyTacticalUnit)
                     {
                         const BWAPI::Unit oldOrderTarget = u->getTarget();
-                        if (u->isIdle() || oldOrderTarget == nullptr || oldOrderTarget != bestAttackableEnemyTacticalUnit)
+                        if (u->isIdle() || oldOrderTarget == nullptr ||
+                            oldOrderTarget != bestAttackableEnemyTacticalUnit)
                         {
                             u->attack(bestAttackableEnemyTacticalUnit);
                         }
@@ -2090,25 +2728,36 @@ void ZZZKBotAIModule::onFrame()
                     const BWAPI::Unit bestAttackableEnemyNonWorkerUnit =
                         Broodwar->getBestUnit(
                             getBestEnemyThreatUnitLambda,
-                            IsEnemy && IsVisible && IsDetected && Exists && !IsWorker &&
+                            IsEnemy && IsVisible && IsDetected && Exists &&
+                            !IsWorker &&
                             [&u, &closestEnemyUnliftedBuildingAnywhere](Unit& tmpUnit)
                             {
                                 return
                                     u->canAttack(PositionOrUnit(tmpUnit)) &&
                                     (tmpUnit == closestEnemyUnliftedBuildingAnywhere ||
                                      tmpUnit->getDistance(closestEnemyUnliftedBuildingAnywhere) <=
-                                         (!tmpUnit->isFlying() ? Broodwar->self()->weaponMaxRange(u->getType().groundWeapon()) : Broodwar->self()->weaponMaxRange(u->getType().airWeapon()))
-                                         + 224);
+                                         (!tmpUnit->isFlying() ?
+                                            Broodwar->self()->weaponMaxRange(
+                                                u->getType().groundWeapon()) :
+                                            Broodwar->self()->weaponMaxRange(
+                                                u->getType().airWeapon())) + 224);
                             },
                             u->getPosition(),
-                            std::max(u->getType().dimensionLeft(), std::max(u->getType().dimensionUp(), std::max(u->getType().dimensionRight(), u->getType().dimensionDown()))) + (int) (std::max(std::max(Broodwar->self()->weaponMaxRange(u->getType().groundWeapon()),
-                                                     Broodwar->self()->weaponMaxRange(u->getType().airWeapon())),
-                                            256)
-                                   * 1));
+                            std::max(u->getType().dimensionLeft(), std::max(
+                                u->getType().dimensionUp(), std::max(
+                                    u->getType().dimensionRight(),
+                                    u->getType().dimensionDown()))) +
+                                (int) (std::max(
+                                    std::max(
+                                        Broodwar->self()->weaponMaxRange(
+                                            u->getType().groundWeapon()),
+                                         Broodwar->self()->weaponMaxRange(
+                                             u->getType().airWeapon())), 256) * 1));
                     if (bestAttackableEnemyNonWorkerUnit)
                     {
                         const BWAPI::Unit oldOrderTarget = u->getTarget();
-                        if (u->isIdle() || oldOrderTarget == nullptr || oldOrderTarget != bestAttackableEnemyNonWorkerUnit)
+                        if (u->isIdle() || oldOrderTarget == nullptr ||
+                            oldOrderTarget != bestAttackableEnemyNonWorkerUnit)
                         {
                             u->attack(bestAttackableEnemyNonWorkerUnit);
                         }
@@ -2116,16 +2765,26 @@ void ZZZKBotAIModule::onFrame()
                     }
                 }
 
+                // # if speedlingBuildOrder, Speed not finished or
+                // # agianst ximp with about 3 miniutes.
                 if (isSpeedlingBuildOrder &&
-                    (Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Metabolic_Boost) != Broodwar->self()->getMaxUpgradeLevel(BWAPI::UpgradeTypes::Metabolic_Boost) ||
+                    (Broodwar->self()->getUpgradeLevel(
+                            BWAPI::UpgradeTypes::Metabolic_Boost) !=
+                        Broodwar->self()->getMaxUpgradeLevel(
+                            BWAPI::UpgradeTypes::Metabolic_Boost) ||
                      (isEnemyXimp && Broodwar->getFrameCount() < 5300)))
                 {
                     continue;
                 }
 
-                if (closestEnemyUnliftedBuildingAnywherePos != BWAPI::Positions::Unknown && closestEnemyUnliftedBuildingAnywherePos != BWAPI::Positions::None)
+                // # if clostestEnemyUnliftedBuilding and its position.
+                if (closestEnemyUnliftedBuildingAnywherePos !=
+                        BWAPI::Positions::Unknown &&
+                    closestEnemyUnliftedBuildingAnywherePos !=
+                        BWAPI::Positions::None)
                 {
-                    if (u->canRightClick(PositionOrUnit(closestEnemyUnliftedBuildingAnywherePos)))
+                    if (u->canRightClick(PositionOrUnit(
+                            closestEnemyUnliftedBuildingAnywherePos)))
                     {
                         // Dunno if rightClick'ing rather than moving is ever beneficial in these scenarios
                         // or whether it is possible to be able to do one but not the other, but let's prefer
@@ -2143,8 +2802,12 @@ void ZZZKBotAIModule::onFrame()
                 }
             }
 
+            // # A Duplicate?
             if (isSpeedlingBuildOrder &&
-                (Broodwar->self()->getUpgradeLevel(BWAPI::UpgradeTypes::Metabolic_Boost) != Broodwar->self()->getMaxUpgradeLevel(BWAPI::UpgradeTypes::Metabolic_Boost) ||
+                (Broodwar->self()->getUpgradeLevel(
+                        BWAPI::UpgradeTypes::Metabolic_Boost) !=
+                    Broodwar->self()->getMaxUpgradeLevel(
+                        BWAPI::UpgradeTypes::Metabolic_Boost) ||
                  (isEnemyXimp && Broodwar->getFrameCount() < 5300)))
             {
                 continue;
@@ -2155,7 +2818,8 @@ void ZZZKBotAIModule::onFrame()
             {
                 BWAPI::Position targetPos = BWAPI::Positions::Unknown;
                 int closestDist = std::numeric_limits<int>::max();
-                for (const BWAPI::Position pos : lastKnownEnemyUnliftedBuildingsAnywherePosSet)
+                for (const BWAPI::Position pos :
+                     lastKnownEnemyUnliftedBuildingsAnywherePosSet)
                 {
                     const int dist = u->getDistance(pos);
                     if (dist < closestDist)
@@ -2179,7 +2843,8 @@ void ZZZKBotAIModule::onFrame()
                 targetPositions.push_back(*enemyStartPositions.begin());
             }
 
-            if (targetPositions.empty() && probableEnemyStartPos != BWAPI::Positions::Unknown)
+            if (targetPositions.empty() &&
+                probableEnemyStartPos != BWAPI::Positions::Unknown)
             {
                 targetPositions.push_back(probableEnemyStartPos);
             }
@@ -2189,13 +2854,15 @@ void ZZZKBotAIModule::onFrame()
                 const int tmpX = (int) u->getClientInfo(scoutingTargetPosXInd);
                 const int tmpY = (int) u->getClientInfo(scoutingTargetPosYInd);
                 if ((tmpX != 0 || tmpY != 0) &&
-                    unscoutedOtherStartPositions.find(Position(tmpX, tmpY)) != unscoutedOtherStartPositions.end())
+                    unscoutedOtherStartPositions.find(Position(tmpX, tmpY)) !=
+                        unscoutedOtherStartPositions.end())
                 {
                     targetPositions.push_back(Position(tmpX, tmpY));
                 }
                 else
                 {
-                    for (const BWAPI::Position pos : unscoutedOtherStartPositions)
+                    for (const BWAPI::Position pos :
+                         unscoutedOtherStartPositions)
                     {
                         targetPositions.push_back(pos);
                     }
@@ -2208,10 +2875,14 @@ void ZZZKBotAIModule::onFrame()
                 const int tmpY = (int) u->getClientInfo(scoutingTargetPosYInd);
                 // If en-route to a position that isn't visible or isn't clear then continue going there.
                 // Occasionally re-randomize late-game cos the unit may not have a path to get there.
+                // # if target acceptable, at least 6 minutes, unscouted.
                 if ((tmpX != 0 || tmpY != 0) &&
                     Broodwar->getFrameCount() % (60 * 24) >= 6 &&
                     (!Broodwar->isVisible(TilePosition(Position(tmpX, tmpY))) ||
-                     !Broodwar->getUnitsOnTile(TilePosition(Position(tmpX, tmpY)), IsEnemy && IsVisible && Exists && IsBuilding && !IsLifted).empty()))
+                     !Broodwar->getUnitsOnTile(
+                        TilePosition(Position(tmpX, tmpY)),
+                        IsEnemy && IsVisible && Exists && IsBuilding &&
+                        !IsLifted).empty()))
                 {
                     targetPositions.push_back(Position(tmpX, tmpY));
                 }
@@ -2219,11 +2890,14 @@ void ZZZKBotAIModule::onFrame()
                 {
                     // Target a random position - preferably one that is not visible.
                     BWAPI::Position pos;
+                    // # ten random positions or till not visible.
                     for (int i = 0; i < 10; ++i)
                     {
                         pos =
-                            Position(rand() % (Broodwar->mapWidth() * BWAPI::TILEPOSITION_SCALE),
-                                     rand() % (Broodwar->mapHeight() * BWAPI::TILEPOSITION_SCALE));
+                            Position(rand() % (Broodwar->mapWidth() *
+                                               BWAPI::TILEPOSITION_SCALE),
+                                     rand() % (Broodwar->mapHeight() *
+                                               BWAPI::TILEPOSITION_SCALE));
 
                         if (!Broodwar->isVisible(TilePosition(pos)))
                         {
@@ -2247,27 +2921,32 @@ void ZZZKBotAIModule::onFrame()
                     // Target the closest target position that has less than a certain number of units
                     // assigned to it, or if they all have at least that amount then target the one that
                     // has the least assigned to it.
+                    // # Sorts by accending distance.
                     std::sort(
                         targetPositions.begin(),
                         targetPositions.end(),
                         [&u](const BWAPI::Position p1, const BWAPI::Position p2)
-                        {
-                            return (u->getDistance(p1) < u->getDistance(p2));
-                        });
+                        { return (u->getDistance(p1) < u->getDistance(p2)); });
     
                     BWAPI::Position posWithFewestUnits = BWAPI::Positions::None;
                     for (const BWAPI::Position targetPos : targetPositions)
                     {
-                        if (numUnitsTargetingPos.find(targetPos) == numUnitsTargetingPos.end() ||
+                        // # if targetPos not in numUnitsTargetingPos or
+                        // # less than 3 units targeting Position.
+                        if (numUnitsTargetingPos.find(targetPos) ==
+                                numUnitsTargetingPos.end() ||
                             numUnitsTargetingPos.at(targetPos) < 3)
                         {
                             pos = targetPos;
                             ++numUnitsTargetingPos[pos];
                             break;
                         }
+                        // # posWithFewestUnits is not the fewest.
                         else if (posWithFewestUnits == BWAPI::Positions::None ||
-                                 (numUnitsTargetingPos.find(posWithFewestUnits) != numUnitsTargetingPos.end() &&
-                                  numUnitsTargetingPos.at(targetPos) < numUnitsTargetingPos.at(posWithFewestUnits)))
+                                 (numUnitsTargetingPos.find(posWithFewestUnits) !=
+                                     numUnitsTargetingPos.end() &&
+                                  numUnitsTargetingPos.at(targetPos) <
+                                     numUnitsTargetingPos.at(posWithFewestUnits)))
                         {
                             posWithFewestUnits = targetPos;
                         }
@@ -2280,6 +2959,7 @@ void ZZZKBotAIModule::onFrame()
                     }
                 }
 
+                // # Duplicate?
                 if (u->canRightClick(PositionOrUnit(pos)))
                 {
                     // Dunno if rightClick'ing rather than moving is ever beneficial in these scenarios
@@ -2320,7 +3000,9 @@ void ZZZKBotAIModule::onFrame()
             const BWAPI::Position oldTargetPos = u->getTargetPosition();
 
             // After we have started pulling an overlord back to base, don't send it out again.
-            if (oldTargetPos == getPos(Broodwar->self()->getStartLocation(), BWAPI::UnitTypes::Special_Start_Location))
+            // # If current position is over our start location.
+            if (oldTargetPos == getPos(Broodwar->self()->getStartLocation(),
+                                       BWAPI::UnitTypes::Special_Start_Location))
             {
                 continue;
             }
@@ -2333,11 +3015,17 @@ void ZZZKBotAIModule::onFrame()
             // Note: isUnderAttack is misleading / not reliable as mentioned elsewhere in this src but never mind.
             // Return overlords back to our base for safety after a few minutes of in-game time or if we see a risk
             // (or against a Terran, when see any enemy building or roughly when a Terran could get first marine).
+            // # if one terranEnemy or terranEnemy with atleast 108secs
+            // # or is probableEnemyStart not set or specific tech seen.
             if (!enemyStartPositions.empty() ||
-                (anEnemyIsTerran && otherStartPositions.size() == 1) ||
-                (anEnemyIsTerran && (!lastKnownEnemyUnliftedBuildingsAnywherePosSet.empty() || (isSpeedlingBuildOrder ? probableEnemyStartPos != BWAPI::Positions::Unknown : Broodwar->getFrameCount() >= 2600))) ||
+                anEnemyIsTerran && otherStartPositions.size() == 1 ||
+                (anEnemyIsTerran &&
+                 (!lastKnownEnemyUnliftedBuildingsAnywherePosSet.empty() ||
+                  (isSpeedlingBuildOrder ?
+                      probableEnemyStartPos != BWAPI::Positions::Unknown :
+                      Broodwar->getFrameCount() >= 2600))) ||
                 u->isUnderAttack() ||
-                 Broodwar->getBestUnit(
+                Broodwar->getBestUnit(
                      getBestEnemyThreatUnitLambda,
                      IsEnemy && IsVisible && Exists && !IsWorker &&
                      (CanAttack ||
@@ -2372,30 +3060,50 @@ void ZZZKBotAIModule::onFrame()
                       GetType == BWAPI::UnitTypes::Terran_Nuclear_Silo ||
                       GetType == BWAPI::UnitTypes::Zerg_Nydus_Canal /*||
                       GetType == BWAPI::UnitTypes::Terran_Comsat_Station*/) &&
-                     [&u](Unit& tmpUnit) { return !tmpUnit->getType().canAttack() || tmpUnit->getType().airWeapon() != BWAPI::WeaponTypes::None; },
+                     [&u](Unit& tmpUnit)
+                     { return !tmpUnit->getType().canAttack() ||
+                              tmpUnit->getType().airWeapon() !=
+                                  BWAPI::WeaponTypes::None; },
                      u->getPosition(),
-                     std::max(u->getType().dimensionLeft(), std::max(u->getType().dimensionUp(), std::max(u->getType().dimensionRight(), u->getType().dimensionDown()))) + (int) (std::max(std::max(Broodwar->self()->weaponMaxRange(u->getType().groundWeapon()),
-                                                 Broodwar->self()->weaponMaxRange(u->getType().airWeapon())),
-                                        1024)
-                                   * 1)) != nullptr)
+                     std::max(u->getType().dimensionLeft(), std::max(
+                         u->getType().dimensionUp(), std::max(
+                             u->getType().dimensionRight(),
+                             u->getType().dimensionDown()))) +
+                         (int) (std::max(
+                             std::max(
+                                 Broodwar->self()->weaponMaxRange(
+                                     u->getType().groundWeapon()),
+                                 Broodwar->self()->weaponMaxRange(
+                                     u->getType().airWeapon())), 1024) * 1)) != nullptr)
             {
-                targetPos = getPos(Broodwar->self()->getStartLocation(), BWAPI::UnitTypes::Special_Start_Location);
+                targetPos = getPos(Broodwar->self()->getStartLocation(),
+                                   BWAPI::UnitTypes::Special_Start_Location);
             }
 
             if (targetPos == BWAPI::Positions::Unknown)
             {
-                if (oldTargetPos != BWAPI::Positions::None && oldTargetPos != BWAPI::Positions::Unknown &&
-                    (isSpeedlingBuildOrder ? true : Broodwar->getFrameCount() < (5 * 60 * 24)) &&
+                // # if oldTarget is set, speedling order or 5 minutes,
+                // # oldTarget not visable or without units.
+                if (oldTargetPos != BWAPI::Positions::None &&
+                    oldTargetPos != BWAPI::Positions::Unknown &&
+                    (isSpeedlingBuildOrder ? true :
+                        Broodwar->getFrameCount() < (5 * 60 * 24)) &&
                     (!Broodwar->isVisible(TilePosition(oldTargetPos)) ||
-                     !Broodwar->getUnitsOnTile(TilePosition(oldTargetPos), IsEnemy && IsVisible && Exists && IsBuilding && !IsLifted).empty()))
+                     !Broodwar->getUnitsOnTile(TilePosition(oldTargetPos),
+                         IsEnemy && IsVisible && Exists && IsBuilding &&
+                         !IsLifted).empty()))
                 {
                     targetPos = oldTargetPos;
                 }
             }
 
-            if (targetPos == BWAPI::Positions::Unknown && !possibleOverlordScoutPositions.empty())
+            // # targetPos not found, possableOverlord Scout Positions.
+            if (targetPos == BWAPI::Positions::Unknown &&
+                !possibleOverlordScoutPositions.empty())
             {
-                int closestOtherStartPosDistance = std::numeric_limits<int>::max();
+                int closestOtherStartPosDistance =
+                        std::numeric_limits<int>::max();
+                // # loop exits targetPos relative to least distance.
                 for (const BWAPI::Position pos : possibleOverlordScoutPositions)
                 {
                     const int dist = u->getDistance(pos);
@@ -2410,7 +3118,8 @@ void ZZZKBotAIModule::onFrame()
             if (targetPos == BWAPI::Positions::Unknown)
             {
                 // Commented out randomizing - for now let's return overlords back to our base for safety.
-                targetPos = getPos(Broodwar->self()->getStartLocation(), BWAPI::UnitTypes::Special_Start_Location);
+                targetPos = getPos(Broodwar->self()->getStartLocation(),
+                                   BWAPI::UnitTypes::Special_Start_Location);
                 //// Target a random position.
                 //targetPos = Position(rand() % (Broodwar->mapWidth() * BWAPI::TILEPOSITION_SCALE),
                 //                     rand() % (Broodwar->mapHeight() * BWAPI::TILEPOSITION_SCALE));
@@ -2451,25 +3160,33 @@ void ZZZKBotAIModule::onFrame()
         // to the same mineral patch but never mind).
         if (startBase)
         {
+            // # set of mineral units not being mined.
             Unitset& freeMinerals =
                 startBase->getUnitsInRadius(
                     256,
                     BWAPI::Filter::IsMineralField &&
                     BWAPI::Filter::Exists &&
-                    [&myFreeGatherers, &resourceToGathererMapAuto, &gathererToResourceMapAuto](BWAPI::Unit& tmpUnit)
+                    [&myFreeGatherers, &resourceToGathererMapAuto,
+                        &gathererToResourceMapAuto]
+                    (BWAPI::Unit& tmpUnit)
                     {
+                        // # Don't mine empty minerals.
                         if (tmpUnit->getResources() <= 0)
                         {
                             return false;
                         }
     
-                        std::map<const BWAPI::Unit, BWAPI::Unit>::iterator resourceToGathererMapIter = resourceToGathererMapAuto.find(tmpUnit);
+                        std::map<const BWAPI::Unit,BWAPI::Unit>::iterator resourceToGathererMapIter;
+                        resourceToGathererMapIter = resourceToGathererMapAuto.find(tmpUnit);
+                        // # if nothing mining the minerals.
                         if (resourceToGathererMapIter == resourceToGathererMapAuto.end())
                         {
                             return true;
                         }
     
-                        BWAPI::Unit& gatherer = resourceToGathererMapIter->second;
+                        // # if mineral gatherer died or is not gathering.
+                        BWAPI::Unit& gatherer =
+                            resourceToGathererMapIter->second;
                         if (!gatherer->exists() ||
                             myFreeGatherers.contains(gatherer) ||
                             // Commented this out because it was causing workers' paths to cross (inefficient?).
@@ -2481,13 +3198,17 @@ void ZZZKBotAIModule::onFrame()
                         {
                             return true;
                         }
-    
-                        std::map<const BWAPI::Unit, BWAPI::Unit>::iterator gathererToResourceMapIter = gathererToResourceMapAuto.find(gatherer);
+
+                        // # if no mineral gatherer.
+                        std::map<const BWAPI::Unit, BWAPI::Unit>::iterator gathererToResourceMapIter;
+                        gathererToResourceMapIter =
+                            gathererToResourceMapAuto.find(gatherer);
                         if (gathererToResourceMapIter == gathererToResourceMapAuto.end())
                         {
                             return true;
                         }
     
+                        // # gatherer gathering this mineral.
                         BWAPI::Unit& resource = gathererToResourceMapIter->second;
                         return resource != tmpUnit;
                     });
@@ -2501,6 +3222,10 @@ void ZZZKBotAIModule::onFrame()
             // The key is the gatherer.
             struct CostMap { std::map<const BWAPI::Unit, MineralToDepotCostMap> val; };
     
+            // # CostMap map{
+            // #    gatherer Unit, depotDist map{
+            // #        mineralToDepot int, joinedDist map{
+            // #            workerToMineralAndDepot int, Mineral set{Unit}}}}
             CostMap costMap;
             bool isGatherPossible = false;
 
@@ -2512,7 +3237,9 @@ void ZZZKBotAIModule::onFrame()
                 {
                     if (gatherer->canGather(mineral))
                     {
-                        costMap.val[gatherer].val[mineralToDepotCost].val[gatherer->getDistance(mineral) + mineralToDepotCost].val.emplace(mineral);
+                        costMap.val[gatherer].val[mineralToDepotCost].val[
+                            gatherer->getDistance(mineral) + mineralToDepotCost
+                            ].val.emplace(mineral);
                         isGatherPossible = true;
                     }
                 }
@@ -2526,7 +3253,9 @@ void ZZZKBotAIModule::onFrame()
                 int bestMineralToDepotCost = std::numeric_limits<int>::max();
                 int bestTotCost = std::numeric_limits<int>::max();
 
-                for (std::map<const BWAPI::Unit, MineralToDepotCostMap>::iterator gathererIter = costMap.val.begin(); gathererIter != costMap.val.end(); )
+                for (std::map<const BWAPI::Unit,
+                        MineralToDepotCostMap>::iterator gathererIter =
+                    costMap.val.begin(); gathererIter != costMap.val.end();)
                 {
                     if (!myFreeGatherers.contains(gathererIter->first))
                     {
@@ -2539,9 +3268,13 @@ void ZZZKBotAIModule::onFrame()
                     int mineralToDepotCost = std::numeric_limits<int>::max();
                     int totCost = std::numeric_limits<int>::max();
 
-                    for (std::map<int, TotCostMap>::iterator mineralToDepotCostIter = gathererIter->second.val.begin(); mineralToDepotCostIter != gathererIter->second.val.end(); )
+                    // # Iterates depotDist
+                    for (std::map<int, TotCostMap>::iterator
+                            mineralToDepotCostIter = gathererIter->second.val.begin();
+                         mineralToDepotCostIter != gathererIter->second.val.end(); )
                     {
                         bool isGatherPossibleForMineralToDepotCost = false;
+                        // ? if > [numeric_limits<int>::max()]
                         if (mineralToDepotCostIter->first > bestMineralToDepotCost)
                         {
                             // Need to assume it is still possible.
@@ -2549,17 +3282,24 @@ void ZZZKBotAIModule::onFrame()
                             break;
                         }
     
-                        for (std::map<int, MineralSet>::iterator totCostIter = mineralToDepotCostIter->second.val.begin(); totCostIter != mineralToDepotCostIter->second.val.end(); )
+                        // # Iterates joinedDist.
+                        for (std::map<int, MineralSet>::iterator
+                                totCostIter = mineralToDepotCostIter->second.val.begin();
+                             totCostIter != mineralToDepotCostIter->second.val.end(); )
                         {
                             bool isGatherPossibleForTotCost = false;
-                            if (mineralToDepotCostIter->first == bestMineralToDepotCost && totCostIter->first > bestTotCost)
+                            if (mineralToDepotCostIter->first == bestMineralToDepotCost &&
+                                totCostIter->first > bestTotCost)
                             {
                                 // Need to assume it is still possible.
                                 isGatherPossibleForMineralToDepotCost = true;
                                 break;
                             }
     
-                            for (std::set<const BWAPI::Unit>::iterator mineralIter = totCostIter->second.val.begin(); mineralIter != totCostIter->second.val.end(); )
+                            // # Iterate joinedDist
+                            for (std::set<const BWAPI::Unit>::iterator
+                                    mineralIter = totCostIter->second.val.begin();
+                                 mineralIter != totCostIter->second.val.end();)
                             {
                                 if (!freeMinerals.contains(*mineralIter))
                                 {
@@ -2576,7 +3316,8 @@ void ZZZKBotAIModule::onFrame()
 
                             if (!isGatherPossibleForTotCost)
                             {
-                                mineralToDepotCostIter->second.val.erase(totCostIter++);
+                                mineralToDepotCostIter->second.val.erase(
+                                    totCostIter++);
                                 continue;
                             }
                             else
@@ -2588,7 +3329,8 @@ void ZZZKBotAIModule::onFrame()
 
                         if (!isGatherPossibleForMineralToDepotCost)
                         {
-                            gathererIter->second.val.erase(mineralToDepotCostIter++);
+                            gathererIter->second.val.erase(
+                                mineralToDepotCostIter++);
                             continue;
                         }
                         else
@@ -2606,7 +3348,9 @@ void ZZZKBotAIModule::onFrame()
                     }
                     else
                     {
-                        if (mineralToDepotCost < bestMineralToDepotCost || (mineralToDepotCost == bestMineralToDepotCost && totCost < bestTotCost))
+                        if (mineralToDepotCost < bestMineralToDepotCost ||
+                           (mineralToDepotCost == bestMineralToDepotCost &&
+                            totCost < bestTotCost))
                         {
                             isGatherPossible = true;
                             bestGatherer = gathererIter->first;
@@ -2627,7 +3371,13 @@ void ZZZKBotAIModule::onFrame()
                     myFreeGatherers.erase(bestGatherer);
                     freeMinerals.erase(bestMineral);
                 
-                    if (gathererToResourceMap.find(bestGatherer) != gathererToResourceMap.end() && resourceToGathererMap.find(gathererToResourceMap.at(bestGatherer)) != resourceToGathererMap.end() && resourceToGathererMap.at(gathererToResourceMap.at(bestGatherer)) == bestGatherer)
+                    if (gathererToResourceMap.find(bestGatherer) !=
+                            gathererToResourceMap.end() &&
+                        resourceToGathererMap.find(
+                                gathererToResourceMap.at(bestGatherer)) !=
+                            resourceToGathererMap.end() &&
+                        resourceToGathererMap.at(
+                            gathererToResourceMap.at(bestGatherer)) == bestGatherer)
                     {
                         resourceToGathererMap.erase(gathererToResourceMap.at(bestGatherer));
                     }
@@ -2642,23 +3392,35 @@ void ZZZKBotAIModule::onFrame()
             {
                 BWAPI::Unit mineralField = nullptr;
                 mineralField = Broodwar->getBestUnit(
-                    [&u, &startBaseAuto](const BWAPI::Unit& bestSoFarUnit, const BWAPI::Unit& curUnit)
+                    [&u, &startBaseAuto]
+                    (const BWAPI::Unit& bestSoFarUnit, const BWAPI::Unit& curUnit)
                     {
-                        if (curUnit->getDistance(startBaseAuto) != bestSoFarUnit->getDistance(startBaseAuto))
+                        if (curUnit->getDistance(startBaseAuto) !=
+                            bestSoFarUnit->getDistance(startBaseAuto))
                         {
-                            return curUnit->getDistance(startBaseAuto) < bestSoFarUnit->getDistance(startBaseAuto) ? curUnit : bestSoFarUnit;
+                            return curUnit->getDistance(startBaseAuto) <
+                                    bestSoFarUnit->getDistance(startBaseAuto) ?
+                                        curUnit :
+                                        bestSoFarUnit;
                         }
 
-                        return u->getDistance(curUnit) < u->getDistance(bestSoFarUnit) ? curUnit : bestSoFarUnit;
+                        return u->getDistance(curUnit) <
+                                u->getDistance(bestSoFarUnit) ?
+                                    curUnit :
+                                    bestSoFarUnit;
                     },
                     BWAPI::Filter::IsMineralField &&
                     BWAPI::Filter::Exists &&
                     [&u](BWAPI::Unit& tmpUnit)
                     {
-                        return tmpUnit->getResources() > 0 && u->canGather(tmpUnit);
+                        return tmpUnit->getResources() > 0 &&
+                               u->canGather(tmpUnit);
                     },
                     startBaseAuto->getPosition(),
-                    std::max(startBaseAuto->getType().dimensionLeft(), std::max(startBaseAuto->getType().dimensionUp(), std::max(startBaseAuto->getType().dimensionRight(), startBaseAuto->getType().dimensionDown()))) + 256);
+                    std::max(startBaseAuto->getType().dimensionLeft(), std::max(
+                        startBaseAuto->getType().dimensionUp(), std::max(
+                            startBaseAuto->getType().dimensionRight(),
+                            startBaseAuto->getType().dimensionDown()))) + 256);
 
                 if (mineralField == nullptr)
                 {
@@ -2667,7 +3429,8 @@ void ZZZKBotAIModule::onFrame()
                         BWAPI::Filter::Exists &&
                         [&u](BWAPI::Unit& tmpUnit)
                         {
-                            return tmpUnit->getResources() > 0 && u->canGather(tmpUnit);
+                            return tmpUnit->getResources() > 0 &&
+                                   u->canGather(tmpUnit);
                         });
                 }
 
@@ -2675,9 +3438,16 @@ void ZZZKBotAIModule::onFrame()
                 {
                     u->gather(mineralField);
                 
-                    if (gathererToResourceMap.find(u) != gathererToResourceMap.end() && resourceToGathererMap.find(gathererToResourceMap.at(u)) != resourceToGathererMap.end() && resourceToGathererMap.at(gathererToResourceMap.at(u)) == u)
+                    if (gathererToResourceMap.find(u) !=
+                            gathererToResourceMap.end() &&
+                        resourceToGathererMap.find(
+                                gathererToResourceMap.at(u)) !=
+                            resourceToGathererMap.end() &&
+                        resourceToGathererMap.at(
+                                gathererToResourceMap.at(u)) == u)
                     {
-                        resourceToGathererMap.erase(gathererToResourceMap.at(u));
+                        resourceToGathererMap.erase(
+                                gathererToResourceMap.at(u));
                     }
                 
                     resourceToGathererMap[mineralField] = u;
@@ -2691,13 +3461,18 @@ void ZZZKBotAIModule::onFrame()
     // Update client info for each of my units (so can check it in future frames).
     for (auto& u : myUnits)
     {
-        if (u->exists() && u->isCompleted() && u->getType() != BWAPI::UnitTypes::Zerg_Larva && u->getType() != BWAPI::UnitTypes::Zerg_Egg)
+        // # if a usable unit.
+        if (u->exists() && u->isCompleted() &&
+            u->getType() != BWAPI::UnitTypes::Zerg_Larva &&
+            u->getType() != BWAPI::UnitTypes::Zerg_Egg)
         {
             const int newX = u->getPosition().x;
             const int newY = u->getPosition().y;
-            if ((int) u->getClientInfo(posXInd) != newX || (int) u->getClientInfo(posYInd) != newY)
+            if ((int) u->getClientInfo(posXInd) != newX ||
+                (int) u->getClientInfo(posYInd) != newY)
             {
-                u->setClientInfo(Broodwar->getFrameCount(), frameLastChangedPosInd);
+                u->setClientInfo(Broodwar->getFrameCount(),
+                                 frameLastChangedPosInd);
             }
     
             u->setClientInfo(newX, posXInd);
@@ -2705,22 +3480,26 @@ void ZZZKBotAIModule::onFrame()
 
             if (u->isAttacking())
             {
-                u->setClientInfo(Broodwar->getFrameCount(), frameLastAttackingInd);
+                u->setClientInfo(Broodwar->getFrameCount(),
+                                 frameLastAttackingInd);
             }
 
             if (u->isAttackFrame())
             {
-                u->setClientInfo(Broodwar->getFrameCount(), frameLastAttackFrameInd);
+                u->setClientInfo(Broodwar->getFrameCount(),
+                                 frameLastAttackFrameInd);
             }
 
             if (u->isStartingAttack())
             {
-                u->setClientInfo(Broodwar->getFrameCount(), frameLastStartingAttackInd);
+                u->setClientInfo(Broodwar->getFrameCount(),
+                                 frameLastStartingAttackInd);
             }
     
             if (u->getType().isWorker() && u->isCarryingMinerals())
             {
-                u->setClientInfo(wasJustCarryingMineralsTrueVal, wasJustCarryingMineralsInd);
+                u->setClientInfo(wasJustCarryingMineralsTrueVal,
+                                 wasJustCarryingMineralsInd);
             }
         }
     }
@@ -2785,7 +3564,8 @@ void ZZZKBotAIModule::onUnitCreate(BWAPI::Unit unit)
             int seconds = Broodwar->getFrameCount()/24;
             int minutes = seconds/60;
             seconds %= 60;
-            Broodwar->sendText("%.2d:%.2d: %s creates a %s", minutes, seconds, unit->getPlayer()->getName().c_str(), unit->getType().c_str());
+            Broodwar->sendText("%.2d:%.2d: %s creates a %s", minutes, seconds,
+                unit->getPlayer()->getName().c_str(), unit->getType().c_str());
         }
     }
 }
@@ -2804,7 +3584,8 @@ void ZZZKBotAIModule::onUnitMorph(BWAPI::Unit unit)
             int seconds = Broodwar->getFrameCount()/24;
             int minutes = seconds/60;
             seconds %= 60;
-            Broodwar->sendText("%.2d:%.2d: %s morphs a %s", minutes, seconds, unit->getPlayer()->getName().c_str(), unit->getType().c_str());
+            Broodwar->sendText("%.2d:%.2d: %s morphs a %s", minutes, seconds,
+                unit->getPlayer()->getName().c_str(), unit->getType().c_str());
         }
     }
 }
