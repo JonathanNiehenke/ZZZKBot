@@ -39,6 +39,280 @@
 using namespace BWAPI;
 using namespace Filter;
 
+typedef std::map<const BWAPI::UnitType, int> unitCounterMap;
+typedef std::set<BWAPI::Position> positionSet;
+
+const int FRAMES_PER_SEC = 24;
+const int GAME_MINUTE = 60 * FRAMES_PER_SEC;
+
+bool isUnliftedBuilding(const BWAPI::Unit& tmpUnit)
+{
+    return tmpUnit->getType().isBuilding() && !tmpUnit->isLifted();
+}
+
+// Checks whether BWAPI already has a command pending to be executed for the specified unit.
+bool noCommand(const BWAPI::Unit& tmpUnit)
+{
+    int cFrame = tmpUnit->getLastCommandFrame(),
+        lFrame = Broodwar->getLatencyFrames();
+    int bm = cFrame + (lFrame > 2 ?  lFrame - (cFrame % 2) : lFrame);
+    return (tmpUnit->getLastCommand().getType() == BWAPI::UnitCommandTypes::None ||
+            Broodwar->getFrameCount() >= bm);
+}
+
+bool isAvailableToBuild(Unit& tmpUnit)
+{
+    return !tmpUnit->isConstructing() && noCommand(tmpUnit);
+}
+
+// Converts a specified BWAPI::TilePosition and building type into a BWAPI::Position that would be roughly at the
+// centre of the building if it is built at the specified BWAPI::TilePosition.
+BWAPI::Position getPos(const BWAPI::TilePosition tp, const BWAPI::UnitType ut)
+{
+    int unitX = (ut.tileWidth() * BWAPI::TILEPOSITION_SCALE) / 2,
+        unitY = (ut.tileHeight() * BWAPI::TILEPOSITION_SCALE) / 2;
+    return Position(Position(tp) + Position(unitX, unitY));
+};
+
+bool isLowLifeDrone(BWAPI::Unit u)
+{
+    // Don't interrupt its attack if it is attacking.
+    // # if not instructed or improper frame or unit is targeting enemy.
+    return u->getHitPoints() <= 10 &&
+           (u->getLastCommand().getType() == BWAPI::UnitCommandTypes::None ||
+            Broodwar->getFrameCount() >= u->getLastCommandFrame() + 2 - (
+                    Broodwar->getLatencyFrames() > 2 ? 
+                        u->getLastCommandFrame() % 2 : 0) ||
+            !u->getTarget()->getPlayer()->isEnemy(Broodwar->self()));
+}
+
+int scoreUnitType(const BWAPI::UnitType& unitType)
+{
+    using namespace BWAPI;
+    int Score = 0;
+    switch (unitType)
+    {
+        case UnitTypes::Enum::Protoss_Pylon:            Score = 30000; break;
+        case UnitTypes::Enum::Protoss_Nexus:            Score = 29000; break;
+        case UnitTypes::Enum::Terran_Command_Center:    Score = 28000; break;
+        case UnitTypes::Enum::Zerg_Hive:                Score = 27000; break;
+        case UnitTypes::Enum::Zerg_Lair:                Score = 26000; break;
+        case UnitTypes::Enum::Zerg_Hatchery:            Score = 25000; break;
+        case UnitTypes::Enum::Zerg_Greater_Spire:       Score = 24000; break;
+        case UnitTypes::Enum::Zerg_Spire:               Score = 23000; break;
+        case UnitTypes::Enum::Terran_Starport:          Score = 22000; break;
+        case UnitTypes::Enum::Protoss_Stargate:         Score = 21000; break;
+        case UnitTypes::Enum::Terran_Factory:           Score = 20000; break;
+        case UnitTypes::Enum::Terran_Barracks:          Score = 19000; break;
+        case UnitTypes::Enum::Zerg_Spawning_Pool:       Score = 18000; break;
+        case UnitTypes::Enum::Zerg_Hydralisk_Den:       Score = 17000; break;
+        case UnitTypes::Enum::Zerg_Queens_Nest:         Score = 16000; break;
+        case UnitTypes::Enum::Protoss_Templar_Archives: Score = 15000; break;
+        case UnitTypes::Enum::Protoss_Gateway:          Score = 14000; break;
+        case UnitTypes::Enum::Protoss_Cybernetics_Core: Score = 13000; break;
+        case UnitTypes::Enum::Protoss_Shield_Battery:   Score = 12000; break;
+        case UnitTypes::Enum::Protoss_Forge:            Score = 11000; break;
+        case UnitTypes::Enum::Protoss_Citadel_of_Adun:  Score = 10000; break;
+        case UnitTypes::Enum::Terran_Academy:           Score = 9000; break;
+        case UnitTypes::Enum::Terran_Engineering_Bay:   Score = 8000; break;
+        case UnitTypes::Enum::Zerg_Creep_Colony:        Score = 7000; break;
+        case UnitTypes::Enum::Zerg_Evolution_Chamber:   Score = 6000; break;
+        case UnitTypes::Enum::Zerg_Lurker_Egg:          Score = 5000; break;
+        case UnitTypes::Enum::Zerg_Egg:                 Score = 4000; break;
+        case UnitTypes::Enum::Zerg_Larva:               Score = 3000; break;
+        case UnitTypes::Enum::Zerg_Spore_Colony:        Score = 2000; break;
+        case UnitTypes::Enum::Terran_Missile_Turret:    Score = 1000; break;
+        case UnitTypes::Enum::Terran_Supply_Depot:      Score = -1000; break;
+        case UnitTypes::Enum::Protoss_Assimilator: // Falls through.
+        case UnitTypes::Enum::Terran_Refinery: // Falls through.
+        case UnitTypes::Enum::Zerg_Extractor:           Score = -2000; break;
+        case UnitTypes::Enum::Terran_Covert_Ops:        Score = -3000; break;
+        case UnitTypes::Enum::Terran_Control_Tower:     Score = -4000; break;
+        case UnitTypes::Enum::Terran_Machine_Shop:      Score = -5000; break;
+        case UnitTypes::Enum::Terran_Comsat_Station:    Score = -6000; break;
+        case UnitTypes::Enum::Protoss_Scarab:           Score = -7000; break;
+        case UnitTypes::Enum::Terran_Vulture_Spider_Mine:  Score = -8000; break;
+        case UnitTypes::Enum::Zerg_Infested_Terran:     Score = -9000; break;
+        default: Score = 0;
+    }
+    return Score;
+}
+
+void ZZZKBotAIModule::collectEnemyStartPositions(
+    positionSet& enemyStartPositions, positionSet& possibleScoutPositions)
+{
+    for (const BWAPI::Player& p : Broodwar->enemies())
+    {
+        const BWAPI::TilePosition enemyStartLocation = p->getStartLocation();
+        // # if acceptable enemyStartLocation.
+        if (!(enemyStartLocation == BWAPI::TilePositions::Unknown ||
+              enemyStartLocation == BWAPI::TilePositions::None))
+        {
+            const BWAPI::Position pos = getPos(
+                enemyStartLocation, BWAPI::UnitTypes::Special_Start_Location);
+            if (enemyStartPositions.empty())
+            {
+                possibleScoutPositions.clear();
+            }
+            possibleScoutPositions.insert(pos);
+            enemyStartPositions.insert(pos);
+        }
+    }
+}
+
+void ZZZKBotAIModule::collectOtherStartPositions(
+        BWAPI::Position& myStartPos, positionSet& startPositions,
+        positionSet& otherStartPositions, positionSet& enemyStartPositions,
+        positionSet& unscoutedOtherStartPositions,
+        positionSet& possibleOverlordScoutPositions)
+{
+    for (const BWAPI::TilePosition tp : Broodwar->getStartLocations())
+    {
+        BWAPI::Position startPos =
+                getPos(tp, BWAPI::UnitTypes::Special_Start_Location);
+        startPositions.insert(startPos);
+        if (startPos != myStartPos)
+        {
+            // ? Where is the source of the bool in the assignment?
+            const std::pair<positionSet::iterator, bool> ret =
+                otherStartPositions.insert(
+                    getPos(tp, BWAPI::UnitTypes::Special_Start_Location));
+
+            // ? And what does the bool signify in this? 
+            if (ret.second)
+            {
+                unscoutedOtherStartPositions.insert(*ret.first);
+                if (enemyStartPositions.empty())
+                {
+                    possibleOverlordScoutPositions.insert(*ret.first);
+                }
+            }
+        }
+    }
+}
+
+void ZZZKBotAIModule::enemyBuild(bool& isSpeedlingBuild, bool& isEnemyXimp)
+{
+    std::string enemyName =
+            Broodwar->enemy() ?  Broodwar->enemy()->getName() : "";
+    std::transform(
+            enemyName.begin(), enemyName.end(), enemyName.begin(), ::toupper);
+    isSpeedlingBuild =
+        enemyName.compare(0, std::string("XIMP").size(), "XIMP") == 0 ||
+        enemyName.compare(0, std::string("OVERKILL").size(), "OVERKILL") == 0 ||
+        enemyName.compare(0, std::string("UALBERTA").size(), "UALBERTA") == 0 ||
+        // Because I have renamed it to "UAB" case-sensitive (was "UAlbertaBot" case-sensitive).
+        enemyName.compare(0, std::string("UAB").size(), "UAB") == 0 ||
+        enemyName.compare(0, std::string("GARM").size(), "GARM") == 0 ||
+        enemyName.compare(0, std::string("TYR").size(), "TYR") == 0;
+    isEnemyXimp =
+        enemyName.compare(0, std::string("XIMP").size(), "XIMP") == 0; 
+}
+
+void ZZZKBotAIModule::countInside(
+        BWAPI::Unit u, unitCounterMap& allUnitCount,
+        unitCounterMap& incompleteUnitCount, int& supplyUsed)
+{
+    const BWAPI::UnitType buildType = u->getBuildType();
+    // # if buildType is known.
+    if (buildType != BWAPI::UnitTypes::None &&
+        buildType != BWAPI::UnitTypes::Unknown)
+    {
+        int tmpCount = buildType.isTwoUnitsInOneEgg() ? 2 : 1;
+        allUnitCount[buildType] += tmpCount;
+        incompleteUnitCount[buildType] += tmpCount;
+        supplyUsed += buildType.supplyRequired() * tmpCount;
+    }
+}
+
+void ZZZKBotAIModule::countUnits(
+        unitCounterMap& allUnitCount, unitCounterMap& completedUnitCount,
+        unitCounterMap& incompleteUnitCount,
+        std::map<const BWAPI::Position, int>& numUnitsTargetingPos,
+        BWAPI::Unitset myCompletedWorkers, int& supplyUsed, Unit& lowLifeDrone,
+        bool& isBuildingLowLife, int scoutingTargetPosXInd,
+        int scoutingTargetPosYInd)
+{
+    for (auto& u : Broodwar->self()->getUnits())
+    {
+        if (!u->exists())
+        {
+            continue;
+        }
+
+        ++allUnitCount[u->getType()];
+        if (u->isCompleted())
+        {
+            ++completedUnitCount[u->getType()];
+        }
+        else
+        {
+            ++incompleteUnitCount[u->getType()];
+        }
+
+        supplyUsed += u->getType().supplyRequired();
+        // # if various eggs/cocoon.
+        if (u->getType() == BWAPI::UnitTypes::Zerg_Egg ||
+            u->getType() == BWAPI::UnitTypes::Zerg_Lurker_Egg ||
+            u->getType() == BWAPI::UnitTypes::Zerg_Cocoon)
+        {
+            ZZZKBotAIModule::countInside(
+                    u, allUnitCount, incompleteUnitCount, supplyUsed);
+        }
+
+        // # if worker is complete.
+        if (u->getType().isWorker() && u->isCompleted())
+        {
+            myCompletedWorkers.insert(u);
+            lowLifeDrone = isLowLifeDrone(u) ? u : lowLifeDrone;
+        }
+
+        // # if completed building is with less than 3/10ths of max
+        // # durability.
+        if (u->getType().isBuilding() && u->isCompleted() &&
+            u->getHitPoints() + u->getShields() <
+                ((u->getType().maxHitPoints() +
+                  u->getType().maxShields()) * 3) / 10)
+        {
+            isBuildingLowLife = true;
+        }
+
+        if (u->getType() != BWAPI::UnitTypes::Zerg_Overlord)
+        {
+            const int tmpX = (int) u->getClientInfo(scoutingTargetPosXInd);
+            const int tmpY = (int) u->getClientInfo(scoutingTargetPosYInd);
+            if (tmpX != 0 || tmpY != 0)
+            {
+                ++numUnitsTargetingPos[Position(tmpX, tmpY)];
+            }
+        }
+    }
+}
+
+void ZZZKBotAIModule::collectEnemyBuildingsPos(
+        positionSet& lastKnownEnemyUnliftedBuildingsAnywherePosSet,
+        std::function<bool (BWAPI::Unit)> isNotStolenGas)
+{
+    positionSet vacantPosSet;
+    for (const BWAPI::Position pos :
+         lastKnownEnemyUnliftedBuildingsAnywherePosSet)
+    {
+        if (Broodwar->isVisible(TilePosition(pos)) &&
+            Broodwar->getUnitsOnTile(
+                TilePosition(pos),
+                IsEnemy && IsVisible && Exists && &isUnliftedBuilding &&
+                isNotStolenGas).empty())
+        {
+            vacantPosSet.insert(pos);
+        }
+    }
+
+    for (const BWAPI::Position pos : vacantPosSet)
+    {
+        lastKnownEnemyUnliftedBuildingsAnywherePosSet.erase(pos);
+    }
+}
+
 void ZZZKBotAIModule::onStart()
 {
     // Print the map name.
@@ -105,7 +379,7 @@ void ZZZKBotAIModule::onFrame()
     // Called once every game frame
 
     // Display the game frame rate as text in the upper left area of the screen
-    Broodwar->drawTextScreen(200, 0,  "FPS: %d", Broodwar->getFPS() );
+    Broodwar->drawTextScreen(200, 0,  "FPS: %d", Broodwar->getFPS());
     Broodwar->drawTextScreen(200, 20, "Average FPS: %f",
                              Broodwar->getAverageFPS());
 
@@ -146,81 +420,28 @@ void ZZZKBotAIModule::onFrame()
     {
         startBase = BWAPI::Broodwar->getClosestUnit(
             BWAPI::Position(BWAPI::Broodwar->self()->getStartLocation()),
-            BWAPI::Filter::IsResourceDepot &&BWAPI::Filter::IsOwned &&
+            BWAPI::Filter::IsResourceDepot && BWAPI::Filter::IsOwned &&
             BWAPI::Filter::IsCompleted && !BWAPI::Filter::IsLifted &&
             BWAPI::Filter::Exists);
     }
 
     auto startBaseAuto = startBase;
 
-    // Converts a specified BWAPI::TilePosition and building type into a BWAPI::Position that would be roughly at the
-    // centre of the building if it is built at the specified BWAPI::TilePosition.
-    auto getPos =
-        [](const BWAPI::TilePosition tp, const BWAPI::UnitType ut)
-        {
-            return Position(Position(tp) +
-                            Position((ut.tileWidth() *
-                                      BWAPI::TILEPOSITION_SCALE) / 2,
-                                     (ut.tileHeight() *
-                                      BWAPI::TILEPOSITION_SCALE) / 2));
-        };
+    static positionSet enemyStartPositions, possibleScoutPositions;
+    ZZZKBotAIModule::collectEnemyStartPositions(
+            enemyStartPositions, possibleScoutPositions);
 
-    static std::set<BWAPI::Position> enemyStartPositions;
-    static std::set<BWAPI::Position> possibleOverlordScoutPositions;
-    for (const BWAPI::Player& p : Broodwar->enemies())
-    {
-        const BWAPI::TilePosition enemyStartLocation = p->getStartLocation();
-        // # if unacceptable enemyStartLocation.
-        if (enemyStartLocation != BWAPI::TilePositions::Unknown &&
-            enemyStartLocation != BWAPI::TilePositions::None)
-        {
-            const BWAPI::Position pos = getPos(
-                enemyStartLocation, BWAPI::UnitTypes::Special_Start_Location);
-            if (enemyStartPositions.empty())
-            {
-                possibleOverlordScoutPositions.clear();
-            }
-
-            possibleOverlordScoutPositions.insert(pos);
-            enemyStartPositions.insert(pos);
-        }
-    }
-
-    static std::set<BWAPI::Position> startPositions;
-    static BWAPI::Position myStartPos = BWAPI::Positions::Unknown;
-    static std::set<BWAPI::Position> otherStartPositions;
-    static std::set<BWAPI::Position> scoutedOtherStartPositions;
-    static std::set<BWAPI::Position> unscoutedOtherStartPositions;
-    for (const BWAPI::TilePosition tp : Broodwar->getStartLocations())
-    {
-        startPositions.insert(
-            getPos(tp, BWAPI::UnitTypes::Special_Start_Location));
-
-        if (tp == Broodwar->self()->getStartLocation())
-        {
-            if (myStartPos == BWAPI::Positions::Unknown)
-            {
-                myStartPos = getPos(
-                    tp, BWAPI::UnitTypes::Special_Start_Location);
-            }
-        }
-        else
-        {
-            // ? Where is the iterator and bool in the assignment?
-            const std::pair<std::set<BWAPI::Position>::iterator, bool> ret =
-                otherStartPositions.insert(
-                    getPos(tp, BWAPI::UnitTypes::Special_Start_Location));
-
-            if (ret.second)
-            {
-                unscoutedOtherStartPositions.insert(*ret.first);
-                if (enemyStartPositions.empty())
-                {
-                    possibleOverlordScoutPositions.insert(*ret.first);
-                }
-            }
-        }
-    }
+    static positionSet startPositions, otherStartPositions,
+                       scoutedOtherStartPositions,
+                       possibleOverlordScoutPositions,
+                       unscoutedOtherStartPositions;
+    static BWAPI::Position myStartPos = getPos(
+            Broodwar->self()->getStartLocation(),
+            BWAPI::UnitTypes::Special_Start_Location);
+    ZZZKBotAIModule::collectOtherStartPositions(
+            myStartPos, startPositions, otherStartPositions,
+            enemyStartPositions, unscoutedOtherStartPositions,
+            possibleOverlordScoutPositions);
 
     for (const BWAPI::Position otherStartPos : unscoutedOtherStartPositions)
     {
@@ -228,8 +449,7 @@ void ZZZKBotAIModule::onFrame()
         if (Broodwar->isVisible(TilePosition(otherStartPos)) &&
             Broodwar->getUnitsOnTile(
                 TilePosition(otherStartPos),
-                IsEnemy && IsVisible && Exists && IsBuilding &&
-                !IsLifted).empty())
+                IsEnemy && IsVisible && Exists && &isUnliftedBuilding).empty())
         {
             scoutedOtherStartPositions.insert(otherStartPos);
         }
@@ -241,26 +461,10 @@ void ZZZKBotAIModule::onFrame()
         unscoutedOtherStartPositions.erase(otherStartPos);
     }
 
-    const std::string& enemyName = Broodwar->enemy() ?
-            Broodwar->enemy()->getName() : "";
-    std::string enemyNameUpperCase = enemyName;
-    std::transform(enemyNameUpperCase.begin(), enemyNameUpperCase.end(),
-                   enemyNameUpperCase.begin(), ::toupper);
-
-    static bool isSpeedlingBuildOrder =
-        enemyNameUpperCase.compare(0, std::string("XIMP").size(), "XIMP") == 0 ||
-        enemyNameUpperCase.compare(0, std::string("OVERKILL").size(), "OVERKILL") == 0 ||
-        enemyNameUpperCase.compare(0, std::string("UALBERTA").size(), "UALBERTA") == 0 ||
-        // Because I have renamed it to "UAB" case-sensitive (was "UAlbertaBot" case-sensitive).
-        enemyNameUpperCase.compare(0, std::string("UAB").size(), "UAB") == 0 ||
-        enemyNameUpperCase.compare(0, std::string("GARM").size(), "GARM") == 0 ||
-        enemyNameUpperCase.compare(0, std::string("TYR").size(), "TYR") == 0;
-
-    static bool isEnemyXimp =
-        enemyNameUpperCase.compare(0, std::string("XIMP").size(), "XIMP") == 0;
-
-    const int transitionOutOfFourPoolFrameCountThresh = isSpeedlingBuildOrder ?
-            0 : (15 * 60 * 24);
+    bool isSpeedlingBuild, isEnemyXimp;
+    ZZZKBotAIModule::enemyBuild(isSpeedlingBuild, isEnemyXimp);
+    const int transitionOutOfFourPoolFrameCountThresh = isSpeedlingBuild ?
+            0 : (15 * GAME_MINUTE);
 
     // We ignore stolen gas, at least until a time near when we plan to make an extractor.
     auto isNotStolenGas =
@@ -270,42 +474,22 @@ void ZZZKBotAIModule::onFrame()
             return
                 !tmpUnit->getType().isRefinery() ||
                 startBaseAuto == nullptr ||
-                Broodwar->getFrameCount() + (60 * 24) >=
+                Broodwar->getFrameCount() + (GAME_MINUTE) >=
                     transitionOutOfFourPoolFrameCountThresh ||
                 startBaseAuto->getDistance(tmpUnit) > 256;
         };
 
-    static std::set<BWAPI::Position> lastKnownEnemyUnliftedBuildingsAnywherePosSet;
-    // Block to restrict scope of variables.
-    {
-        std::set<BWAPI::Position> vacantPosSet;
-        // ? Its initiated as Empty search for insert and push_back.
-        for (const BWAPI::Position pos :
-             lastKnownEnemyUnliftedBuildingsAnywherePosSet)
-        {
-            if (Broodwar->isVisible(TilePosition(pos)) &&
-                Broodwar->getUnitsOnTile(
-                    TilePosition(pos),
-                    IsEnemy && IsVisible && Exists && IsBuilding && !IsLifted &&
-                    isNotStolenGas).empty())
-            {
-                vacantPosSet.insert(pos);
-            }
-        }
-
-        for (const BWAPI::Position pos : vacantPosSet)
-        {
-            lastKnownEnemyUnliftedBuildingsAnywherePosSet.erase(pos);
-        }
-    }
+    static positionSet lastKnownEnemyUnliftedBuildingsAnywherePosSet;
+    ZZZKBotAIModule::collectEnemyBuildingsPos(
+            lastKnownEnemyUnliftedBuildingsAnywherePosSet, isNotStolenGas);
 
     // TODO: add separate logic for enemy overlords (because e.g. on maps with 3 or more start locations
     // the first enemy overlord I see is not necessarily from the start position
     // nearest it).
-    static BWAPI::Position firstEnemyNonWorkerSeenPos =
-        BWAPI::Positions::Unknown;
-    static BWAPI::Position closestEnemySeenPos = BWAPI::Positions::Unknown;
-    static BWAPI::Position furthestEnemySeenPos = BWAPI::Positions::Unknown;
+    static BWAPI::Position
+        firstEnemyNonWorkerSeenPos = BWAPI::Positions::Unknown,
+        closestEnemySeenPos = BWAPI::Positions::Unknown,
+        furthestEnemySeenPos = BWAPI::Positions::Unknown;
 
     const Unitset& allUnits = Broodwar->getAllUnits();
     for (auto& u : allUnits)
@@ -315,8 +499,7 @@ void ZZZKBotAIModule::onFrame()
             u->getPlayer()->isEnemy(Broodwar->self()))
         {
             // # if unlifted building is not stolen gas.
-            if (u->getType().isBuilding() && !u->isLifted() &&
-                isNotStolenGas(u))
+            if (isUnliftedBuilding(u) && isNotStolenGas(u))
             {
                 lastKnownEnemyUnliftedBuildingsAnywherePosSet.insert(
                         u->getPosition());
@@ -362,8 +545,7 @@ void ZZZKBotAIModule::onFrame()
     {
         for (const BWAPI::Position pos : unscoutedOtherStartPositions)
         {
-            // # if probableEnemyStart less than furthestEnemySeen or
-            // # unknown.
+            // # Target closer start locations.
             if (probableEnemyStartPos == BWAPI::Positions::Unknown ||
                 furthestEnemySeenPos.getDistance(pos) <
                     furthestEnemySeenPos.getDistance(probableEnemyStartPos))
@@ -373,6 +555,7 @@ void ZZZKBotAIModule::onFrame()
         }
     }
 
+    // TODO: This logic doesn't always work if the enemy made proxy rax/gateway though.
     // # if closestEnemySeenPos and probableEnemyStartPos are set.
     if (closestEnemySeenPos != BWAPI::Positions::Unknown &&
         probableEnemyStartPos != BWAPI::Positions::Unknown)
@@ -383,12 +566,6 @@ void ZZZKBotAIModule::onFrame()
             myStartPos.getDistance(closestEnemySeenPos) <
                 probableEnemyStartPos.getDistance(closestEnemySeenPos))
         {
-            // We send combat units to other starting positions in order of their closeness,
-            // and 4pool should get combat units faster than any other build, so on most maps
-            // our first 6 lings should see their combat unit before it gets closer to us than
-            // we are to them if they are at one of the two closest other start positions.
-            // If not then don't try to guess where they are. TODO: This logic doesn't always
-            // work if the enemy made proxy rax/gateway though.
             probableEnemyStartPos = BWAPI::Positions::Unknown;
         }
     }
@@ -421,92 +598,12 @@ void ZZZKBotAIModule::onFrame()
     // The counts might not count the worker currently inside the extractor, if any.
     // Eggs, lurker eggs and cocoons have their own count (in addition to counting
     // what they contain).
-    std::map<const BWAPI::UnitType, int> allUnitCount;
-    std::map<const BWAPI::UnitType, int> incompleteUnitCount;
-    std::map<const BWAPI::UnitType, int> completedUnitCount;
-
+    unitCounterMap allUnitCount, incompleteUnitCount, completedUnitCount;
     std::map<const BWAPI::Position, int> numUnitsTargetingPos;
-
-    for (auto& u : myUnits)
-    {
-        if (!u->exists())
-        {
-            continue;
-        }
-
-        ++allUnitCount[u->getType()];
-        if (u->isCompleted())
-        {
-            ++completedUnitCount[u->getType()];
-        }
-        else
-        {
-            ++incompleteUnitCount[u->getType()];
-        }
-
-        supplyUsed += u->getType().supplyRequired();
-        // # if various eggs/cocoon.
-        if (u->getType() == BWAPI::UnitTypes::Zerg_Egg ||
-            u->getType() == BWAPI::UnitTypes::Zerg_Lurker_Egg ||
-            u->getType() == BWAPI::UnitTypes::Zerg_Cocoon)
-        {
-            const BWAPI::UnitType buildType = u->getBuildType();
-            // # if buildType is known.
-            if (buildType != BWAPI::UnitTypes::None &&
-                buildType != BWAPI::UnitTypes::Unknown)
-            {
-                int tmpCount = buildType.isTwoUnitsInOneEgg() ? 2 : 1;
-                allUnitCount[buildType] += tmpCount;
-                incompleteUnitCount[buildType] += tmpCount;
-                supplyUsed += buildType.supplyRequired() * tmpCount;
-            }
-        }
-
-        // # if worker is complete.
-        if (u->getType().isWorker() && u->isCompleted())
-        {
-            myCompletedWorkers.insert(u);
-        }
-
-        // # if Drone and <= 10 health.
-        if (u->getType() == BWAPI::UnitTypes::Zerg_Drone &&
-            u->getHitPoints() <= 10)
-        {
-            // Don't interrupt its attack if it is attacking.
-            // # if not instructed or improper frame or unit is targeting enemy.
-            if (u->getLastCommand().getType() ==
-                    BWAPI::UnitCommandTypes::None ||
-                Broodwar->getFrameCount() >=
-                    u->getLastCommandFrame() + 2 - (
-                        Broodwar->getLatencyFrames() > 2 ? 
-                            u->getLastCommandFrame() % 2 : 0) ||
-                !(u->getTarget() && u->getTarget()->getPlayer() &&
-                  u->getTarget()->getPlayer()->isEnemy(Broodwar->self())))
-            {
-                lowLifeDrone = u;
-            }
-        }
-
-        // # if completed building is with less than 3/10ths of max
-        // # durability.
-        if (u->getType().isBuilding() && u->isCompleted() &&
-            u->getHitPoints() + u->getShields() <
-                ((u->getType().maxHitPoints() +
-                  u->getType().maxShields()) * 3) / 10)
-        {
-            isBuildingLowLife = true;
-        }
-
-        if (u->getType() != BWAPI::UnitTypes::Zerg_Overlord)
-        {
-            const int tmpX = (int) u->getClientInfo(scoutingTargetPosXInd);
-            const int tmpY = (int) u->getClientInfo(scoutingTargetPosYInd);
-            if (tmpX != 0 || tmpY != 0)
-            {
-                ++numUnitsTargetingPos[Position(tmpX, tmpY)];
-            }
-        }
-    }
+    ZZZKBotAIModule::countUnits(allUnitCount, completedUnitCount,
+            incompleteUnitCount, numUnitsTargetingPos, myCompletedWorkers,
+            supplyUsed, lowLifeDrone, isBuildingLowLife, scoutingTargetPosXInd,
+            scoutingTargetPosYInd);
 
     // # if releative 15min game or supply at 60 or greater.
     if (Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh ||
@@ -516,8 +613,7 @@ void ZZZKBotAIModule::onFrame()
     }
 
     // Worker/base defence logic.
-    bool workersShouldRetaliate = false;
-    bool shouldDefend = false;
+    bool workersShouldRetaliate = false, shouldDefend = false;
     BWAPI::Unit workerAttackTargetUnit = nullptr;
     for (auto& u : myCompletedWorkers)
     {
@@ -525,8 +621,7 @@ void ZZZKBotAIModule::onFrame()
             u->getUnitsInRadius(
                 256,
                 IsEnemy && IsVisible && IsDetected && Exists &&
-                CanAttack &&
-                !IsBuilding &&
+                CanAttack && !IsBuilding &&
                 [&u, &startBaseAuto](Unit& tmpUnit)
                 {
                     return (startBaseAuto ?
@@ -654,22 +749,6 @@ void ZZZKBotAIModule::onFrame()
         }
     }
 
-    // Checks whether BWAPI already has a command pending to be executed for the specified unit.
-    auto noCmdPending =
-        [](const BWAPI::Unit& tmpUnit)
-        {
-            return
-                (bool)
-                // # No previous unit command or targeted frame.
-                (tmpUnit->getLastCommand().getType() ==
-                        BWAPI::UnitCommandTypes::None ||
-                 Broodwar->getFrameCount() >= tmpUnit->getLastCommandFrame() +
-                    (Broodwar->getLatencyFrames() > 2 ?
-                        Broodwar->getLatencyFrames() -
-                            (tmpUnit->getLastCommandFrame() % 2) :
-                        Broodwar->getLatencyFrames()));
-        };
-
     // Logic to make a building.
     // TODO: support making buildings concurrently (rather than designing each building's prerequisites to avoid this situation).
     // TODO: support making more than one building of a particular type.
@@ -677,8 +756,8 @@ void ZZZKBotAIModule::onFrame()
     static BWAPI::Unit geyser = nullptr;
     auto geyserAuto = geyser;
     auto makeUnit =
-        [&startBaseAuto, &allUnitCount, &getPos, &gathererToResourceMapAuto,
-         &resourceToGathererMapAuto, &lowLifeDrone, &geyserAuto, &noCmdPending]
+        [&startBaseAuto, &allUnitCount, &gathererToResourceMapAuto,
+         &resourceToGathererMapAuto, &lowLifeDrone, &geyserAuto]
         (const BWAPI::UnitType& buildingType,
          BWAPI::Unit& reservedBuilder,
          BWAPI::TilePosition& targetBuildLocation,
@@ -716,27 +795,20 @@ void ZZZKBotAIModule::onFrame()
                     builder = lowLifeDrone;
                 }
 
-                auto isAvailableToBuild =
-                    [&startBaseAuto, &noCmdPending](Unit& tmpUnit)
-                    {
-                        return !tmpUnit->isConstructing() &&
-                               noCmdPending(tmpUnit);
-                    };
-
                 // # if builder not set and ??.
                 if (builder == nullptr && startBaseAuto)
                 {        
                     builder = startBaseAuto->getClosestUnit(
                             GetType == builderType &&
                             IsIdle && !IsCarryingSomething && IsOwned &&
-                            isAvailableToBuild);
+                            &isAvailableToBuild);
                     // # if builder remains not set.
                     if (builder == nullptr)
                         // # Searches within the mineral gatherers.
                         builder = startBaseAuto->getClosestUnit(
                             GetType == builderType && IsGatheringMinerals &&
                             !IsCarryingSomething && IsOwned &&
-                            isAvailableToBuild);
+                            &isAvailableToBuild);
                     // In case we are being worker rushed, don't necessarily wait for workers to return their
                     // minerals/gas powerup because we should start building the pool asap and the workers are
                     // likely to be almost always fighting.
@@ -747,23 +819,23 @@ void ZZZKBotAIModule::onFrame()
                             builder = startBaseAuto->getClosestUnit(
                                 GetType == builderType && IsIdle &&
                                 !IsCarryingGas && IsOwned &&
-                                isAvailableToBuild);
+                                &isAvailableToBuild);
                         if (builder == nullptr)
                             // # All mineral gatherers.
                             builder = startBaseAuto->getClosestUnit(
                                 GetType == builderType && IsGatheringMinerals &&
-                                IsOwned && isAvailableToBuild);
+                                IsOwned && &isAvailableToBuild);
                         if (builder == nullptr)
                             // # Gas gatherers not carrying gas.
                             builder = startBaseAuto->getClosestUnit(
                                 GetType == builderType && IsGatheringGas &&
                                 !IsCarryingGas && IsOwned &&
-                                isAvailableToBuild);
+                                &isAvailableToBuild);
                         if (builder == nullptr)
                             // # Gas gatherers carrying gas.
                             builder = startBaseAuto->getClosestUnit(
                                 GetType == builderType && IsGatheringGas &&
-                                IsOwned && isAvailableToBuild);
+                                IsOwned && &isAvailableToBuild);
                     }
                 }
 
@@ -908,7 +980,7 @@ void ZZZKBotAIModule::onFrame()
                   reservedBuilder != oldReservedBuilder)) &&
                 oldReservedBuilder->getLastCommand().getType() !=
                     BWAPI::UnitCommandTypes::None &&
-                noCmdPending(oldReservedBuilder) &&
+                noCommand(oldReservedBuilder) &&
                 oldReservedBuilder->canStop())
             {
                 oldReservedBuilder->stop();
@@ -964,7 +1036,7 @@ void ZZZKBotAIModule::onFrame()
         static BWAPI::TilePosition groundArmyBuildingLocation =
             BWAPI::TilePositions::None;
         static int frameLastCheckedGroundArmyBuildingLocation = 0;
-        const int checkGroundArmyBuildingLocationFreqFrames = (10 * 24);
+        const int checkGroundArmyBuildingLocationFreqFrames = (10 * FRAMES_PER_SEC);
         makeUnit(
             groundArmyBuildingType,
             groundArmyBuildingBuilder,
@@ -994,7 +1066,7 @@ void ZZZKBotAIModule::onFrame()
         static BWAPI::TilePosition extractorLocation =
             BWAPI::TilePositions::None;
         static int frameLastCheckedExtractorLocation = 0;
-        const int checkExtractorLocationFreqFrames = (1 * 24);
+        const int checkExtractorLocationFreqFrames = (1 * FRAMES_PER_SEC);
         makeUnit(
             BWAPI::UnitTypes::Zerg_Extractor,
             extractorBuilder,
@@ -1026,7 +1098,7 @@ void ZZZKBotAIModule::onFrame()
         static BWAPI::TilePosition hatcheryLocation =
             BWAPI::TilePositions::None;
         static int frameLastCheckedHatcheryLocation = 0;
-        const int checkHatcheryLocationFreqFrames = (10 * 24);
+        const int checkHatcheryLocationFreqFrames = (10 * FRAMES_PER_SEC);
         makeUnit(
             BWAPI::UnitTypes::Zerg_Hatchery,
             hatcheryBuilder,
@@ -1043,7 +1115,7 @@ void ZZZKBotAIModule::onFrame()
             (Broodwar->getFrameCount() >=
                 transitionOutOfFourPoolFrameCountThresh ||
             supplyUsed >= 60) &&
-            (isSpeedlingBuildOrder ? true :
+            (isSpeedlingBuild ? true :
                 (allUnitCount[BWAPI::UnitTypes::Zerg_Lair] +
                  allUnitCount[BWAPI::UnitTypes::Zerg_Hive] > 0)));
     }
@@ -1055,7 +1127,7 @@ void ZZZKBotAIModule::onFrame()
         static BWAPI::TilePosition queensNestLocation =
             BWAPI::TilePositions::None;
         static int frameLastCheckedQueensNestLocation = 0;
-        const int checkQueensNestLocationFreqFrames = (10 * 24);
+        const int checkQueensNestLocationFreqFrames = (10 * FRAMES_PER_SEC);
         makeUnit(
             BWAPI::UnitTypes::Zerg_Queens_Nest,
             queensNestBuilder,
@@ -1067,7 +1139,7 @@ void ZZZKBotAIModule::onFrame()
             Broodwar->canMake(BWAPI::UnitTypes::Zerg_Queens_Nest) &&
             (Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh ||
              supplyUsed >= 60) &&
-            (isSpeedlingBuildOrder ?
+            (isSpeedlingBuild ?
              allUnitCount[BWAPI::UnitTypes::Zerg_Spire] > 0 :
              true));
     }
@@ -1080,7 +1152,7 @@ void ZZZKBotAIModule::onFrame()
         static Unit spireBuilder = nullptr;
         static BWAPI::TilePosition spireLocation = BWAPI::TilePositions::None;
         static int frameLastCheckedSpireLocation = 0;
-        const int checkSpireLocationFreqFrames = (10 * 24);
+        const int checkSpireLocationFreqFrames = (10 * FRAMES_PER_SEC);
         makeUnit(
             BWAPI::UnitTypes::Zerg_Spire,
             spireBuilder,
@@ -1094,7 +1166,7 @@ void ZZZKBotAIModule::onFrame()
             (Broodwar->getFrameCount() >= transitionOutOfFourPoolFrameCountThresh ||
              supplyUsed >= 60) &&
             allUnitCount[BWAPI::UnitTypes::Zerg_Greater_Spire] == 0 &&
-            (isSpeedlingBuildOrder ? true :
+            (isSpeedlingBuild ? true :
              (allUnitCount[BWAPI::UnitTypes::Zerg_Queens_Nest] > 0 &&
               allUnitCount[BWAPI::UnitTypes::Zerg_Hive] > 0)));
     }
@@ -1109,7 +1181,7 @@ void ZZZKBotAIModule::onFrame()
         static BWAPI::TilePosition hydraDenLocation =
             BWAPI::TilePositions::None;
         static int frameLastCheckedHydraDenLocation = 0;
-        const int checkHydraDenLocationFreqFrames = (10 * 24);
+        const int checkHydraDenLocationFreqFrames = (10 * FRAMES_PER_SEC);
         makeUnit(
             BWAPI::UnitTypes::Zerg_Hydralisk_Den,
             hydraDenBuilder,
@@ -1137,7 +1209,7 @@ void ZZZKBotAIModule::onFrame()
         static BWAPI::TilePosition ultraCavernLocation =    
             BWAPI::TilePositions::None;
         static int frameLastCheckedUltraCavernLocation = 0;
-        const int checkUltraCavernLocationFreqFrames = (10 * 24);
+        const int checkUltraCavernLocationFreqFrames = (10 * FRAMES_PER_SEC);
         makeUnit(
             BWAPI::UnitTypes::Zerg_Ultralisk_Cavern,
             ultraCavernBuilder,
@@ -1163,7 +1235,7 @@ void ZZZKBotAIModule::onFrame()
             static int lastAddedGathererToRefinery = 0;
             // # if greater than realative 3 minutes.
             if (Broodwar->getFrameCount() >
-                    lastAddedGathererToRefinery + (3 * 24))
+                    lastAddedGathererToRefinery + (3 * FRAMES_PER_SEC))
             {
                 BWAPI::Unit gasGatherer = u->getClosestUnit(
                     IsOwned && Exists && GetType == BWAPI::UnitTypes::Zerg_Drone &&
@@ -1172,7 +1244,7 @@ void ZZZKBotAIModule::onFrame()
                     256);
 
                 // # if speedlingBuildOrder and is upgrading speed.
-                if (isSpeedlingBuildOrder &&
+                if (isSpeedlingBuild &&
                     (/*Broodwar->self()->gas() >= BWAPI::UpgradeTypes::Metabolic_Boost.gasPrice() ||*/
                      Broodwar->self()->isUpgrading(
                          BWAPI::UpgradeTypes::Metabolic_Boost) /*||
@@ -1183,7 +1255,7 @@ void ZZZKBotAIModule::onFrame()
                     {
                         // if not constructing, commanded and canStop.
                         if (!gasGatherer->isConstructing() &&
-                            noCmdPending(gasGatherer) &&
+                            noCommand(gasGatherer) &&
                             gasGatherer->canStop())
                         {
                             gasGatherer->stop();
@@ -1197,10 +1269,10 @@ void ZZZKBotAIModule::onFrame()
                     if (gasGatherer == nullptr)
                     {        
                         auto isAvailableToGatherFrom =
-                            [&u, &noCmdPending](Unit& tmpUnit)
+                            [&u](Unit& tmpUnit)
                             {
                                 return !tmpUnit->isConstructing() &&
-                                    noCmdPending(tmpUnit) &&
+                                    noCommand(tmpUnit) &&
                                     tmpUnit->canGather(u);
                             };
 
@@ -1378,7 +1450,7 @@ void ZZZKBotAIModule::onFrame()
             continue;
 
         // For speedling build, upgrade metabolic boost when possible.
-        if (isSpeedlingBuildOrder &&
+        if (isSpeedlingBuild &&
             u->getType() == BWAPI::UnitTypes::Zerg_Spawning_Pool)
         {
             if (u->canUpgrade(BWAPI::UpgradeTypes::Metabolic_Boost))
@@ -1481,56 +1553,9 @@ void ZZZKBotAIModule::onFrame()
                     }
                 }
 
-                auto unitTypeScoreLambda =
-                    []
-                    (const BWAPI::UnitType& unitType) -> int
-                    {
-                        return
-                            unitType == BWAPI::UnitTypes::Protoss_Pylon ? 30000 :
-                            unitType == BWAPI::UnitTypes::Protoss_Nexus ? 29000 :
-                            unitType == BWAPI::UnitTypes::Terran_Command_Center ? 28000 :
-                            unitType == BWAPI::UnitTypes::Zerg_Hive ? 27000 :
-                            unitType == BWAPI::UnitTypes::Zerg_Lair ? 26000 :
-                            unitType == BWAPI::UnitTypes::Zerg_Hatchery ? 25000 :
-                            unitType == BWAPI::UnitTypes::Zerg_Greater_Spire ? 24000 :
-                            unitType == BWAPI::UnitTypes::Zerg_Spire ? 23000 :
-                            unitType == BWAPI::UnitTypes::Terran_Starport ? 22000 :
-                            unitType == BWAPI::UnitTypes::Protoss_Stargate ? 21000 :
-                            unitType == BWAPI::UnitTypes::Terran_Factory ? 20000 :
-                            unitType == BWAPI::UnitTypes::Terran_Barracks ? 19000 :
-                            unitType == BWAPI::UnitTypes::Zerg_Spawning_Pool ? 18000 :
-                            unitType == BWAPI::UnitTypes::Zerg_Hydralisk_Den ? 17000 :
-                            unitType == BWAPI::UnitTypes::Zerg_Queens_Nest ? 16000 :
-                            unitType == BWAPI::UnitTypes::Protoss_Templar_Archives ? 15000 :
-                            unitType == BWAPI::UnitTypes::Protoss_Gateway ? 14000 :
-                            unitType == BWAPI::UnitTypes::Protoss_Cybernetics_Core ? 13000 :
-                            unitType == BWAPI::UnitTypes::Protoss_Shield_Battery ? 12000 :
-                            unitType == BWAPI::UnitTypes::Protoss_Forge ? 11000 :
-                            unitType == BWAPI::UnitTypes::Protoss_Citadel_of_Adun ? 10000 :
-                            unitType == BWAPI::UnitTypes::Terran_Academy ? 9000 :
-                            unitType == BWAPI::UnitTypes::Terran_Engineering_Bay ? 8000 :
-                            unitType == BWAPI::UnitTypes::Zerg_Creep_Colony ? 7000 :
-                            unitType == BWAPI::UnitTypes::Zerg_Evolution_Chamber ? 6000 :
-                            unitType == BWAPI::UnitTypes::Zerg_Lurker_Egg ? 5000 :
-                            unitType == BWAPI::UnitTypes::Zerg_Egg ? 4000 :
-                            unitType == BWAPI::UnitTypes::Zerg_Larva ? 3000 :
-                            unitType == BWAPI::UnitTypes::Zerg_Spore_Colony ? 2000 :
-                            unitType == BWAPI::UnitTypes::Terran_Missile_Turret ? 1000 :
-                            unitType == BWAPI::UnitTypes::Terran_Supply_Depot ? -1000 :
-                            unitType.isRefinery() ? -2000 :
-                            unitType == BWAPI::UnitTypes::Terran_Covert_Ops ? -3000 :
-                            unitType == BWAPI::UnitTypes::Terran_Control_Tower ? -4000 :
-                            unitType == BWAPI::UnitTypes::Terran_Machine_Shop ? -5000 :
-                            unitType == BWAPI::UnitTypes::Terran_Comsat_Station ? -6000 :
-                            unitType == BWAPI::UnitTypes::Protoss_Scarab ? -7000 :
-                            unitType == BWAPI::UnitTypes::Terran_Vulture_Spider_Mine ? -8000 :
-                            unitType == BWAPI::UnitTypes::Zerg_Infested_Terran ? -9000 :
-                            0;
-                    };
-
-                const int curUnitTypeScore = unitTypeScoreLambda(curUnitType);
+                const int curUnitTypeScore = scoreUnitType(curUnitType);
                 const int bestSoFarUnitTypeScore =
-                    unitTypeScoreLambda(bestSoFarUnitType);
+                    scoreUnitType(bestSoFarUnitType);
                 if (curUnitTypeScore != bestSoFarUnitTypeScore)
                 {
                     return curUnitTypeScore >
@@ -1976,14 +2001,14 @@ void ZZZKBotAIModule::onFrame()
                  // TODO: this might not count the worker currently inside the extractor.
                  allUnitCount[BWAPI::UnitTypes::Zerg_Drone] +
                     numWorkersTrainedThisFrame < (
-                        (isSpeedlingBuildOrder &&
+                        (isSpeedlingBuild &&
                          allUnitCount[BWAPI::UnitTypes::Zerg_Lair] +
                              allUnitCount[BWAPI::UnitTypes::Zerg_Hive] == 0) ?
                                  9 : 28)))
             {
                 if (u->getType() == UnitTypes::Zerg_Larva ||
                     (u->getTrainingQueue().size() < 2 &&
-                     noCmdPending(u)))
+                     noCommand(u)))
                 {
                     if (u->canTrain(workerUnitType))
                     {
@@ -2004,9 +2029,9 @@ void ZZZKBotAIModule::onFrame()
             if (u->canMorph(BWAPI::UnitTypes::Zerg_Lair) &&
                 allUnitCount[BWAPI::UnitTypes::Zerg_Lair] +
                     allUnitCount[BWAPI::UnitTypes::Zerg_Hive] == 0 &&
-                (!isSpeedlingBuildOrder ?
+                (!isSpeedlingBuild ?
                     true :
-                    (Broodwar->getFrameCount() > (5 * 60 * 24) &&
+                    (Broodwar->getFrameCount() > (5 * GAME_MINUTE) &&
                      (Broodwar->self()->getUpgradeLevel(
                           BWAPI::UpgradeTypes::Metabolic_Boost) ==
                               Broodwar->self()->getMaxUpgradeLevel(
@@ -2071,13 +2096,13 @@ void ZZZKBotAIModule::onFrame()
             // constantly kamikaze'ing mutalisks).
             // # SpeedlingBuild or existing GreaterSpire and less than
             // # 40 airUnits.
-            if ((isSpeedlingBuildOrder ||
+            if ((isSpeedlingBuild ||
                  allUnitCount[BWAPI::UnitTypes::Zerg_Greater_Spire] > 0) &&
-                allUnitCount[airForceUnitType] <= (isSpeedlingBuildOrder ? 40 : 12))
+                allUnitCount[airForceUnitType] <= (isSpeedlingBuild ? 40 : 12))
             {
                 // Train more air combat units.
                 if (u->getType() == UnitTypes::Zerg_Larva ||
-                    (u->getTrainingQueue().size() < 2 && noCmdPending(u)))
+                    (u->getTrainingQueue().size() < 2 && noCommand(u)))
                 {
                     if (u->canTrain(airForceUnitType))
                     {
@@ -2100,7 +2125,7 @@ void ZZZKBotAIModule::onFrame()
                   allUnitCount[groundArmyUnitType] <= 30)) &&
                 (u->getType() == UnitTypes::Zerg_Larva ||
                  (u->getTrainingQueue().size() < 2 &&
-                  noCmdPending(u))))
+                  noCommand(u))))
             {
                 if (u->canTrain(groundArmyUnitType))
                 {
@@ -2180,7 +2205,7 @@ void ZZZKBotAIModule::onFrame()
             {
                 static int lastIssuedBuildSupplyProviderCmd = 0;
                 if (Broodwar->getFrameCount() >=
-                        lastIssuedBuildSupplyProviderCmd + (10 * 24))
+                        lastIssuedBuildSupplyProviderCmd + (10 * FRAMES_PER_SEC))
                 {
                     // Retrieve a unit that is capable of constructing the supply needed
                     Unit supplyBuilder = u->getClosestUnit(
@@ -2223,17 +2248,17 @@ void ZZZKBotAIModule::onFrame()
         // # moved more than 3 seconds ago and no other commands.
         else if (u->canStop() && u->canAttack() && u->canMove() &&
                  !u->isFlying() && !u->isAttacking() &&
-                 (int) u->getClientInfo(frameLastStoppedInd) + (3 * 24) <
+                 (int) u->getClientInfo(frameLastStoppedInd) + (3 * FRAMES_PER_SEC) <
                         Broodwar->getFrameCount() &&
                  (int) u->getClientInfo(frameLastAttackingInd) +
                         std::max(
                             Broodwar->self()->weaponDamageCooldown(u->getType()),
                             u->getType().airWeapon().damageCooldown()) +
-                        (3 * 24) < Broodwar->getFrameCount() &&
+                        (3 * FRAMES_PER_SEC) < Broodwar->getFrameCount() &&
                  (int) u->getClientInfo(frameLastChangedPosInd) > 0 &&
-                 (int) u->getClientInfo(frameLastChangedPosInd) + (3 * 24) <
+                 (int) u->getClientInfo(frameLastChangedPosInd) + (3 * FRAMES_PER_SEC) <
                         Broodwar->getFrameCount() &&
-                 noCmdPending(u))
+                 noCommand(u))
         {
             u->stop();
             u->setClientInfo(Broodwar->getFrameCount(), frameLastStoppedInd);
@@ -2241,7 +2266,7 @@ void ZZZKBotAIModule::onFrame()
         }
         else if (u->canAttack() &&
                  !u->isAttackFrame() &&
-                 noCmdPending(u))
+                 noCommand(u))
         {
             // I.E. in-range enemy unit that is a threat to this particular unit
             // (so for example, an enemy zergling is not a threat to my mutalisk).
@@ -2533,7 +2558,7 @@ void ZZZKBotAIModule::onFrame()
             // We ignore stolen gas, at least until a time near when we plan to make an extractor.
             const Unit closestEnemyUnliftedBuildingAnywhere =
                 u->getClosestUnit(
-                    IsEnemy && IsVisible && Exists && IsBuilding && !IsLifted &&
+                    IsEnemy && IsVisible && Exists && &isUnliftedBuilding &&
                     isNotStolenGas);
 
             const BWAPI::Position closestEnemyUnliftedBuildingAnywherePos =
@@ -2767,7 +2792,7 @@ void ZZZKBotAIModule::onFrame()
 
                 // # if speedlingBuildOrder, Speed not finished or
                 // # agianst ximp with about 3 miniutes.
-                if (isSpeedlingBuildOrder &&
+                if (isSpeedlingBuild &&
                     (Broodwar->self()->getUpgradeLevel(
                             BWAPI::UpgradeTypes::Metabolic_Boost) !=
                         Broodwar->self()->getMaxUpgradeLevel(
@@ -2803,7 +2828,7 @@ void ZZZKBotAIModule::onFrame()
             }
 
             // # A Duplicate?
-            if (isSpeedlingBuildOrder &&
+            if (isSpeedlingBuild &&
                 (Broodwar->self()->getUpgradeLevel(
                         BWAPI::UpgradeTypes::Metabolic_Boost) !=
                     Broodwar->self()->getMaxUpgradeLevel(
@@ -2877,12 +2902,12 @@ void ZZZKBotAIModule::onFrame()
                 // Occasionally re-randomize late-game cos the unit may not have a path to get there.
                 // # if target acceptable, at least 6 minutes, unscouted.
                 if ((tmpX != 0 || tmpY != 0) &&
-                    Broodwar->getFrameCount() % (60 * 24) >= 6 &&
+                    Broodwar->getFrameCount() % (GAME_MINUTE) >= 6 &&
                     (!Broodwar->isVisible(TilePosition(Position(tmpX, tmpY))) ||
                      !Broodwar->getUnitsOnTile(
                         TilePosition(Position(tmpX, tmpY)),
-                        IsEnemy && IsVisible && Exists && IsBuilding &&
-                        !IsLifted).empty()))
+                        IsEnemy && IsVisible && Exists &&
+                        &isUnliftedBuilding).empty()))
                 {
                     targetPositions.push_back(Position(tmpX, tmpY));
                 }
@@ -2983,7 +3008,7 @@ void ZZZKBotAIModule::onFrame()
         }
         else if (u->getType() == UnitTypes::Zerg_Overlord)
         {
-            if (!noCmdPending(u))
+            if (!noCommand(u))
             {
                 continue;
             }
@@ -3021,7 +3046,7 @@ void ZZZKBotAIModule::onFrame()
                 anEnemyIsTerran && otherStartPositions.size() == 1 ||
                 (anEnemyIsTerran &&
                  (!lastKnownEnemyUnliftedBuildingsAnywherePosSet.empty() ||
-                  (isSpeedlingBuildOrder ?
+                  (isSpeedlingBuild ?
                       probableEnemyStartPos != BWAPI::Positions::Unknown :
                       Broodwar->getFrameCount() >= 2600))) ||
                 u->isUnderAttack() ||
@@ -3086,12 +3111,12 @@ void ZZZKBotAIModule::onFrame()
                 // # oldTarget not visable or without units.
                 if (oldTargetPos != BWAPI::Positions::None &&
                     oldTargetPos != BWAPI::Positions::Unknown &&
-                    (isSpeedlingBuildOrder ? true :
-                        Broodwar->getFrameCount() < (5 * 60 * 24)) &&
+                    (isSpeedlingBuild ? true :
+                        Broodwar->getFrameCount() < (5 * GAME_MINUTE)) &&
                     (!Broodwar->isVisible(TilePosition(oldTargetPos)) ||
                      !Broodwar->getUnitsOnTile(TilePosition(oldTargetPos),
-                         IsEnemy && IsVisible && Exists && IsBuilding &&
-                         !IsLifted).empty()))
+                         IsEnemy && IsVisible && Exists &&
+                         &isUnliftedBuilding).empty()))
                 {
                     targetPos = oldTargetPos;
                 }
@@ -3561,7 +3586,7 @@ void ZZZKBotAIModule::onUnitCreate(BWAPI::Unit unit)
         // if we are in a replay, then we will print out the build order of the structures
         if (unit->getType().isBuilding() && !unit->getPlayer()->isNeutral())
         {
-            int seconds = Broodwar->getFrameCount()/24;
+            int seconds = Broodwar->getFrameCount()/FRAMES_PER_SEC;
             int minutes = seconds/60;
             seconds %= 60;
             Broodwar->sendText("%.2d:%.2d: %s creates a %s", minutes, seconds,
@@ -3581,7 +3606,7 @@ void ZZZKBotAIModule::onUnitMorph(BWAPI::Unit unit)
         // if we are in a replay, then we will print out the build order of the structures
         if (unit->getType().isBuilding() && !unit->getPlayer()->isNeutral())
         {
-            int seconds = Broodwar->getFrameCount()/24;
+            int seconds = Broodwar->getFrameCount()/FRAMES_PER_SEC;
             int minutes = seconds/60;
             seconds %= 60;
             Broodwar->sendText("%.2d:%.2d: %s morphs a %s", minutes, seconds,

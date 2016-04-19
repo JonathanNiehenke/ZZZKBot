@@ -32,6 +32,37 @@
 
 class ZZZKBotAIModule : public BWAPI::AIModule
 {
+private:
+  void ZZZKBotAIModule::collectEnemyStartPositions(
+        std::set<BWAPI::Position>& enemyStartPositions,
+        std::set<BWAPI::Position>& possibleScoutPositions);
+  void ZZZKBotAIModule::collectOtherStartPositions(
+        BWAPI::Position& myStartPos,
+        std::set<BWAPI::Position>& startPostions,
+        std::set<BWAPI::Position>& otherStartPostions,
+        std::set<BWAPI::Position>& enemyStartPositons,
+        std::set<BWAPI::Position>& unscoutedOtherStartPositions,
+        std::set<BWAPI::Position>& possibleOverlordScoutPositions);
+  void ZZZKBotAIModule::enemyBuild(bool& isSpeedlingBuild, bool& isEnemyXimp);
+  void ZZZKBotAIModule::countInside(
+        BWAPI::Unit u, std::map<const BWAPI::UnitType, int>& allUnitCount,
+        std::map<const BWAPI::UnitType, int>& incompleteUnitCount,
+        int& supplyUsed);
+  void ZZZKBotAIModule::countUnits(
+        std::map<const BWAPI::UnitType, int>& allUnitCount,
+        std::map<const BWAPI::UnitType, int>& completedUnitCount,
+        std::map<const BWAPI::UnitType, int>& incompleteUnitCount,
+        std::map<const BWAPI::Position, int>& numUnitsTargetingPos,
+        BWAPI::Unitset myCompletedWorkers,
+        int& supplyUsed,
+        BWAPI::Unit& lowLifeDrone,
+        bool& isBuildingLowLife,
+        int scoutingTargetPosXInd,
+        int scoutingTargetPosYInd);
+  void ZZZKBotAIModule::collectEnemyBuildingsPos(
+        std::set<BWAPI::Position>& lastKnownEnemyUnliftedBuildingsAnywherePosSet,
+        std::function<bool (BWAPI::Unit)> isNotStolenGas);
+
 public:
   // Virtual functions for callbacks, leave these as they are.
   virtual void onStart();
