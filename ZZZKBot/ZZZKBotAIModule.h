@@ -44,6 +44,15 @@ private:
         std::set<BWAPI::Position>& unscoutedOtherStartPositions,
         std::set<BWAPI::Position>& possibleOverlordScoutPositions);
   void ZZZKBotAIModule::enemyBuild(bool& isSpeedlingBuild, bool& isEnemyXimp);
+  void ZZZKBotAIModule::collectEnemyBuildingsPos(
+        std::set<BWAPI::Position>& lastKnownEnemyUnliftedBuildingsAnywherePosSet,
+        std::function<bool (BWAPI::Unit)> isNotStolenGas);
+  void ZZZKBotAIModule::collectEnemyPositions(
+        BWAPI::Position firstEnemyNonWorkerSeenPos,
+        BWAPI::Position closestEnemySeemPos,
+        BWAPI::Position furthesEnemySeenPos, BWAPI::Position myStartPos,
+        std::set<BWAPI::Position>& lastKnownEnemyUnliftedBuildingsAnywherePosSet,
+        std::function<bool (BWAPI::Unit)> isNotStolenGas);
   void ZZZKBotAIModule::countInside(
         BWAPI::Unit u, std::map<const BWAPI::UnitType, int>& allUnitCount,
         std::map<const BWAPI::UnitType, int>& incompleteUnitCount,
@@ -59,9 +68,80 @@ private:
         bool& isBuildingLowLife,
         int scoutingTargetPosXInd,
         int scoutingTargetPosYInd);
-  void ZZZKBotAIModule::collectEnemyBuildingsPos(
-        std::set<BWAPI::Position>& lastKnownEnemyUnliftedBuildingsAnywherePosSet,
-        std::function<bool (BWAPI::Unit)> isNotStolenGas);
+  void ZZZKBotAIModule::determineWorkerDefense(
+        bool& workersShouldRetaliate,
+        bool& shouldDefend,
+        bool isBuildingLowLife,
+        int workerCount,
+        BWAPI::Unitset attackableEnemyNonBuildingThreatUnits,
+        std::map<const BWAPI::UnitType, int> allUnitCount);
+  void ZZZKBotAIModule::determineWorkerTarget(
+        BWAPI::Unit workerAttackTarget,
+        BWAPI::Unit u,
+        BWAPI::Unit startBaseAuto,
+        bool shouldDefend);
+  BWAPI::Unit ZZZKBotAIModule::determineWorkerTargetBackup();
+  BWAPI::Unit ZZZKBotAIModule::identifyBuilder(
+        BWAPI::Unit startBaseAuto,
+        BWAPI::UnitType builderType,
+        BWAPI::UnitType buildingType);
+  BWAPI::TilePosition ZZZKBotAIModule::determineBuildLocation(
+        BWAPI::Unit builder,
+        BWAPI::UnitType buildingType,
+        BWAPI::Unit startBaseAuto,
+        BWAPI::Unit& geyserAuto);
+  void ZZZKBotAIModule::construct(
+        BWAPI::Unit builder,
+        BWAPI::UnitType buildingType,
+        BWAPI::TilePosition targetBuildLocation,
+        BWAPI::Unit& geyserAuto,
+        BWAPI::Unit& reservedBuilder);
+  void ZZZKBotAIModule::prepareForConstruction(
+        BWAPI::Unit builder,
+        BWAPI::UnitType buildingType,
+        BWAPI::TilePosition targetBuildLocation,
+        BWAPI::Unit& reservedBuilder);
+  void ZZZKBotAIModule::displaceMineralGatherer(
+        BWAPI::Unit mineralGatherer,
+        std::map<const BWAPI::Unit, BWAPI::Unit>& gathererToResourceMapAuto,
+        std::map<const BWAPI::Unit, BWAPI::Unit>& resourceToGathererMapAuto);
+  void ZZZKBotAIModule::prepAndConstructBuilding(
+        BWAPI::Unit builder,
+        BWAPI::UnitType buildingType,
+        BWAPI::TilePosition& targetBuildLocation,
+        BWAPI::Unit& geyserAuto,
+        BWAPI::Unit& reservedBuilder,
+        int& frameLastCheckedBuildLocation,
+        int checkBuildLocationFreqFrames,
+        BWAPI::Unit startBaseAuto,
+        std::map<const BWAPI::Unit, BWAPI::Unit>& gathererToResourceMapAuto,
+        std::map<const BWAPI::Unit, BWAPI::Unit>& resourceToGathererMapAuto);
+  void ZZZKBotAIModule::prepAndBuild(
+        BWAPI::UnitType builderType,
+        BWAPI::UnitType buildingType,
+        BWAPI::Unit lowLifeDrone,
+        BWAPI::TilePosition& targetBuildLocation,
+        BWAPI::Unit& geyserAuto,
+        BWAPI::Unit& reservedBuilder,
+        int& frameLastCheckedBuildLocation,
+        int checkBuildLocationFreqFrames,
+        BWAPI::Unit startBaseAuto,
+        std::map<const BWAPI::Unit, BWAPI::Unit>& gathererToResourceMapAuto,
+        std::map<const BWAPI::Unit, BWAPI::Unit>& resourceToGathererMapAuto,
+        BWAPI::Unit oldReservedBuilder);
+  void ZZZKBotAIModule::makeUnit(
+        BWAPI::Unit startBaseAuto,
+        std::map<const BWAPI::UnitType, int> allUnitCount,
+        std::map<const BWAPI::Unit, BWAPI::Unit> gathererToResourceMapAuto,
+        std::map<const BWAPI::Unit, BWAPI::Unit> resourceToGathererMapAuto,
+        BWAPI::Unit lowLifeDrone,
+        BWAPI::Unit geyserAuto,
+        const BWAPI::UnitType& buildingType,
+        BWAPI::Unit& reservedBuilder,
+        BWAPI::TilePosition& targetBuildLocation,
+        int& frameLastCheckedBuildLocation,
+        int checkBuildLocationFreqFrames,
+        bool isNeeded);
 
 public:
   // Virtual functions for callbacks, leave these as they are.
