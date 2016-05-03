@@ -81,10 +81,12 @@ private:
         BWAPI::Unit startBaseAuto,
         bool shouldDefend);
   BWAPI::Unit ZZZKBotAIModule::determineWorkerTargetBackup();
+/*
   BWAPI::Unit ZZZKBotAIModule::identifyBuilder(
         BWAPI::Unit startBaseAuto,
         BWAPI::UnitType builderType,
         BWAPI::UnitType buildingType);
+*/
   BWAPI::TilePosition ZZZKBotAIModule::determineBuildLocation(
         BWAPI::Unit builder,
         BWAPI::UnitType buildingType,
@@ -135,13 +137,25 @@ private:
         std::map<const BWAPI::Unit, BWAPI::Unit> gathererToResourceMapAuto,
         std::map<const BWAPI::Unit, BWAPI::Unit> resourceToGathererMapAuto,
         BWAPI::Unit lowLifeDrone,
-        BWAPI::Unit geyserAuto,
+        BWAPI::Unit& geyserAuto,
         const BWAPI::UnitType& buildingType,
         BWAPI::Unit& reservedBuilder,
         BWAPI::TilePosition& targetBuildLocation,
         int& frameLastCheckedBuildLocation,
         int checkBuildLocationFreqFrames,
         bool isNeeded);
+  void ZZZKBotAIModule::constructBuilding(
+        BWAPI::UnitType buildingType,
+        std::function<void (const BWAPI::UnitType&, BWAPI::Unit&,
+            BWAPI::TilePosition&, int&, const int, const bool)> makeUnitLamda,
+        BWAPI::Unit& builder,
+        std::map<const BWAPI::UnitType, int> allUnitCount,
+        int numWorkersTrainedThisFrame,
+        int supplyUsed,
+        int transitionOutOfFourPool,
+        BWAPI::Unit lowLifeDrone,
+        bool isSpeedlingBuild);
+        
 
 public:
   // Virtual functions for callbacks, leave these as they are.
