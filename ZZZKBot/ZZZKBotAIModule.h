@@ -81,12 +81,6 @@ private:
         BWAPI::Unit startBaseAuto,
         bool shouldDefend);
   BWAPI::Unit ZZZKBotAIModule::determineWorkerTargetBackup();
-/*
-  BWAPI::Unit ZZZKBotAIModule::identifyBuilder(
-        BWAPI::Unit startBaseAuto,
-        BWAPI::UnitType builderType,
-        BWAPI::UnitType buildingType);
-*/
   BWAPI::TilePosition ZZZKBotAIModule::determineBuildLocation(
         BWAPI::Unit builder,
         BWAPI::UnitType buildingType,
@@ -155,7 +149,21 @@ private:
         int transitionOutOfFourPool,
         BWAPI::Unit lowLifeDrone,
         bool isSpeedlingBuild);
-        
+  void ZZZKBotAIModule::recruitToGas(
+        BWAPI::Unit u,
+        std::map<const BWAPI::Unit, BWAPI::Unit>& gathererToResourceMapAuto,
+        std::map<const BWAPI::Unit, BWAPI::Unit>& resourceToGathererMapAuto,
+        int& lastAddedGathererToRefinery);
+  BWAPI::Unit ZZZKBotAIModule::identifyOpportunityTarget(
+        BWAPI::Unit u,
+        std::function<BWAPI::Unit (const BWAPI::Unit& bestUnitYet,
+                                   const BWAPI::Unit& curUnit)>
+            getBestEnemyThreatUnitLambda);
+  BWAPI::Unit ZZZKBotAIModule::getBestEnemyThreatUnit(
+        const BWAPI::Unit& u,
+        const BWAPI::Unit& bestUnitYet,
+        const BWAPI::Unit& curUnit);
+
 
 public:
   // Virtual functions for callbacks, leave these as they are.
