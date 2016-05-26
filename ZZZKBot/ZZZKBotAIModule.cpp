@@ -785,20 +785,20 @@ void ZZZKBotAIModule::prepAndBuild(
 
 void ZZZKBotAIModule::displaceMineralGatherer(
         BWAPI::Unit mineralGatherer,
-        unitAssignmentMap& gathererToResourceMapAuto,
-        unitAssignmentMap& resourceToGathererMapAuto)
+        unitAssignmentMap& gathererToResourceMap,
+        unitAssignmentMap& resourceToGathererMap)
 {
-    if (gathererToResourceMapAuto.find(mineralGatherer) !=
-            gathererToResourceMapAuto.end() &&
-        resourceToGathererMapAuto.find(gathererToResourceMapAuto.at(
-                mineralGatherer)) != resourceToGathererMapAuto.end() &&
-        resourceToGathererMapAuto.at(gathererToResourceMapAuto.at(
+    if (gathererToResourceMap.find(mineralGatherer) !=
+            gathererToResourceMap.end() &&
+        resourceToGathererMap.find(gathererToResourceMap.at(
+                mineralGatherer)) != resourceToGathererMap.end() &&
+        resourceToGathererMap.at(gathererToResourceMap.at(
                 mineralGatherer)) == mineralGatherer)
     {
-        resourceToGathererMapAuto.erase(gathererToResourceMapAuto.at(
+        resourceToGathererMap.erase(gathererToResourceMap.at(
                 mineralGatherer));
     }
-    gathererToResourceMapAuto.erase(mineralGatherer);
+    gathererToResourceMap.erase(mineralGatherer);
 }
 
 void ZZZKBotAIModule::makeUnit(
@@ -1768,8 +1768,7 @@ void ZZZKBotAIModule::onFrame()
         // # varieties, less than 50 minerals or no hatchery varieties
         // # and no lava.
         if (completedUnitCount[BWAPI::UnitTypes::Zerg_Spawning_Pool] > 0 &&
-            u->getType() == BWAPI::UnitTypes::Zerg_Egg &&
-            !u->isCompleted() &&
+            u->getType() == BWAPI::UnitTypes::Zerg_Egg && !u->isCompleted() &&
             getDroneCount(allUnitCount, numWorkersTrainedThisFrame) == 0 &&
             (Broodwar->self()->minerals() < 50 || larvaSource(allUnitCount)))
         {
@@ -1852,23 +1851,10 @@ void ZZZKBotAIModule::onFrame()
                         if (u->isIdle() || oldOrderTarget == nullptr ||
                             oldOrderTarget != bestAttackableEnemyNonBuildingUnit)
                         {
+                            ZZZKBotAIModule::displaceMineralGatherer(
+                                u, gathererToResourceMap, resourceToGathererMap);
                             u->attack(bestAttackableEnemyNonBuildingUnit);
-    
-                            if (gathererToResourceMap.find(u) !=
-                                        gathererToResourceMap.end() &&
-                                resourceToGathererMap.find(
-                                    gathererToResourceMap.at(u)) !=
-                                        resourceToGathererMap.end() &&
-                                resourceToGathererMap.at(
-                                    gathererToResourceMap.at(u)) == u)
-                            {
-                                resourceToGathererMap.erase(
-                                    gathererToResourceMap.at(u));
-                            }
-    
-                            gathererToResourceMap.erase(u);
                         }
-
                         continue;
                     }
                 }
@@ -1881,14 +1867,12 @@ void ZZZKBotAIModule::onFrame()
                     const bool isNewCmdNeeded = u->isIdle() ||(u->getTarget() &&
                             u->getTarget()->getPlayer() &&
                             u->getTarget()->getPlayer()->isEnemy(Broodwar->self()));
-                    if (isNewCmdNeeded ||
-                        (!u->isCarryingMinerals() &&
-                        (int) u->getClientInfo(wasJustCarryingMineralsInd) ==
-                             wasJustCarryingMineralsTrueVal))
+                    notMining = (!u->isCarryingMinerals() &&
+                         u->getClientInfo(wasJustCarryingMineralsInd) ==
+                            wasJustCarryingMineralsTrueVal)
+                    if (isNewCmdNeeded || notMining)
                     {
-                        if (!u->isCarryingMinerals() &&
-                            (int) u->getClientInfo(wasJustCarryingMineralsInd) ==
-                                wasJustCarryingMineralsTrueVal)
+                        if (notMining)
                         {
                             // Reset indicator about carrying minerals because we aren't carrying minerals now.
                             // Note: setClientInfo may also be called at the end of this and some other frames
